@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>讀帖 · v2 設計稿總覽</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+
+  /* 网页环境黑白；内容区暖纸 */
+  body {
+    background: #1A1A1A;
+    min-height: 100vh;
+    color: var(--ink);
+  }
+  .topbar {
+    background: rgba(28, 28, 28, 0.96);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: #E8E8E8;
+    backdrop-filter: none;
+  }
+  .topbar .meta { color: #C8C8C8; }
+  .topbar .tools .tool-btn,
+  .topbar .tools a.tool-btn {
+    color: #C8C8C8;
+  }
+  .topbar .tools .tool-btn:hover,
+  .topbar .tools a.tool-btn:hover {
+    color: #F0F0F0;
+    border-color: rgba(180, 80, 70, 0.5);
+  }
+  .seal, .seal.double {
+    border-color: #C45A4A;
+    color: #D08078;
+  }
+
+  .wrap {
+    max-width: 880px;
+    margin: 28px auto 40px;
+    padding: 40px 32px 56px;
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(ellipse at 18% 22%, rgba(70,50,30,0.04) 0%, transparent 42%),
+      radial-gradient(ellipse at 78% 68%, rgba(50,40,25,0.03) 0%, transparent 48%);
+    border: 1px solid rgba(46, 36, 24, 0.22);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+  }
+  h1 {
+    font-family: var(--kaiti);
+    font-size: 28px;
+    letter-spacing: 0.35em;
+    font-weight: 500;
+  }
+  .sub {
+    margin-top: 12px;
+    font-family: var(--songti);
+    font-size: 14px;
+    color: var(--gloss);
+    line-height: 1.9;
+    letter-spacing: 0.06em;
+  }
+  .rule { height: 1px; background: var(--hair); margin: 28px 0 32px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  a.card {
+    display: block;
+    background: var(--paper);
+    border: 1px solid rgba(46, 36, 24, 0.28);
+    padding: 22px 24px 20px;
+    transition: border-color .15s;
+    position: relative;
+  }
+  a.card:hover { border-color: var(--zhu); }
+  a.card .no {
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    color: var(--zhu);
+  }
+  a.card h2 {
+    font-family: var(--kaiti);
+    font-size: 22px;
+    letter-spacing: 0.2em;
+    margin: 10px 0 8px;
+    font-weight: 500;
+  }
+  a.card p {
+    font-family: var(--songti);
+    font-size: 13px;
+    line-height: 1.85;
+    color: var(--gloss);
+  }
+  a.card.wide { grid-column: 1 / -1; border-color: rgba(156, 42, 32, 0.45); }
+  .badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    font-family: var(--hei);
+    color: var(--zhu);
+    border: 1px solid var(--zhu);
+    vertical-align: 3px;
+  }
+  .flow {
+    margin-top: 36px;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    line-height: 2.1;
+  }
+  .flow b { color: var(--zhu); font-weight: 500; }
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="seal double" href="index.html">讀帖</a>
+    <span class="meta">v2 高保真設計稿 · 可交互原型</span>
+  </header>
+  <div class="wrap">
+    <h1>讀帖 · 設計稿 v2</h1>
+    <p class="sub">線裝與卷軸已合為同一閱讀頁，頂欄可切換；句對／字號／繁簡共用。建議桌面 Chrome ≈1920×980。</p>
+    <div class="rule"></div>
+    <div class="grid">
+      <a class="card" href="index.html">
+        <span class="no">〇一</span>
+        <h2>碑帖目錄</h2>
+        <p>按朝代分組；《集王聖教序》可進；蘭亭、九成宮、多寶塔等灰置「計劃中」。</p>
+      </a>
+      <a class="card" href="title.html">
+        <span class="no">〇二</span>
+        <h2>條目扉頁</h2>
+        <p>豎排大字碑名 + 展簽式元信息（朝代／撰文／集書／原石），進入閱讀。</p>
+      </a>
+      <a class="card wide" href="read.html">
+        <span class="no">〇三 · 核心</span>
+        <h2>統一閱讀頁 · 線裝｜卷軸 <span class="badge">可切換</span></h2>
+        <p>同一頁頂欄切換「線裝／卷軸」，繁簡與字號不丟失（?mode=book|scroll + localStorage）。線裝：對開、版心、翻頁動效、暖紙、環境黑白。卷軸：橫展裱絹、90vw、無軸頭、豎排窄欄釋義。文案見 pairs-data.js。</p>
+      </a>
+      <a class="card" href="read.html?mode=book">
+        <span class="no">〇三甲</span>
+        <h2>直達 · 線裝</h2>
+        <p>對開翻頁定稿行為。</p>
+      </a>
+      <a class="card" href="read.html?mode=scroll">
+        <span class="no">〇三乙</span>
+        <h2>直達 · 卷軸</h2>
+        <p>橫展手卷捲動閱讀。</p>
+      </a>
+      <a class="card" href="colophon.html" style="grid-column:1/-1">
+        <span class="no">〇四</span>
+        <h2>跋 · 校記</h2>
+        <p>「涂間失地」之「涂」通「途」說明；朱字「終」收尾。</p>
+      </a>
+    </div>
+    <p class="flow">建議路徑：<b>目錄</b> → <b>扉頁</b> → <b>閱讀</b>（一頁內切換線裝｜卷軸） → <b>跋</b><br>
+      色值紙 #F4EEDC · 環境 #1A1A1A · 墨 #221A12 · 釋義褐 #5A4A34 · 朱 #9C2A20</p>
+  </div>
+</body>
+</html>

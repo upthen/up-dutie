@@ -1,0 +1,175 @@
+/* 「读帖」v2 · 设计 tokens（贴近线装刻本）
+   牙白纸 #F4EEDC · 环境 #CDBFA0 · 沉墨 #221A12 · 释义褐 #5A4A34
+   乌丝 rgba(50,38,26,0.4) · 朱砂 #9C2A20 */
+
+:root {
+  --paper: #F4EEDC;
+  --env: #CDBFA0;
+  --ink: #221A12;
+  --gloss: #5A4A34;
+  --grid: rgba(50, 38, 26, 0.40);
+  --zhu: #9C2A20;
+  --zhu-line: rgba(156, 42, 32, 0.45);
+  --muted: #7A6E58;
+  --hair: rgba(34, 26, 18, 0.16);
+  --chrome: 44px;
+  --kaiti: "Kaiti SC", "STKaiti", "KaiTi", "楷体", "BiauKai", "Noto Serif CJK TC", "Noto Serif CJK SC", serif;
+  --songti: "Songti SC", "STSong", "SimSun", "宋体", "NSimSun", "Noto Serif CJK SC", "Noto Serif CJK TC", serif;
+  --hei: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --orig-size: 42px;
+  --gloss-size: 18px;
+  --col-w: 68px; /* 界行宽＞字号，留与竖线间距；JS 按字号×比例同步 */
+  --cell: 1em;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--env);
+  color: var(--ink);
+  font-family: var(--hei);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* —— 顶栏（尽量薄） —— */
+.topbar {
+  height: var(--chrome);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 22px;
+  background: rgba(217, 207, 178, 0.92);
+  border-bottom: 1px solid var(--hair);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: blur(4px);
+}
+.seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--zhu);
+  color: var(--zhu);
+  font-family: var(--kaiti);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  writing-mode: horizontal-tb;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.seal.double {
+  width: auto;
+  padding: 0 5px;
+  height: 26px;
+  letter-spacing: 0.18em;
+  font-size: 12px;
+}
+.topbar .meta {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar .tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.topbar .seg {
+  display: flex;
+  gap: 2px;
+  margin-right: 10px;
+  padding-right: 12px;
+  border-right: 1px solid var(--hair);
+}
+.topbar .seg button,
+.topbar .tools > button,
+.tool-btn {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  border: 1px solid transparent;
+  border-radius: 0;
+}
+.topbar .seg button:hover,
+.topbar .tools > button:hover,
+.tool-btn:hover {
+  color: var(--zhu);
+  border-color: rgba(156, 42, 32, 0.35);
+}
+.topbar .seg button.active,
+.tool-btn.active {
+  color: var(--zhu);
+  border-color: var(--zhu);
+}
+.topbar .tools > button[disabled] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* —— 文武双栏版框（外粗内细，贴近刻本） —— */
+.frame {
+  position: relative;
+  background: transparent;
+  box-shadow:
+    0 0 0 2px rgba(34, 26, 18, 0.72),      /* 外粗 */
+    inset 0 0 0 1px rgba(34, 26, 18, 0.55),
+    inset 0 0 0 5px var(--paper),
+    inset 0 0 0 6.5px rgba(34, 26, 18, 0.5); /* 内细 */
+}
+
+/* —— 页脚 / 页码 —— */
+.pager {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  font-family: var(--songti);
+}
+.pager button {
+  color: var(--ink);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+}
+.pager button:hover { color: var(--zhu); border-color: rgba(156,42,32,0.35); }
+.pager .num { color: var(--zhu); min-width: 5em; text-align: center; }
+
+/* 设计稿标注小字 */
+.anno-note {
+  position: absolute;
+  font-family: var(--hei);
+  font-size: 10px;
+  color: rgba(46, 36, 24, 0.38);
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  pointer-events: none;
+  z-index: 5;
+}

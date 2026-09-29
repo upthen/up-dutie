@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>集王聖教序 · 扉頁</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* 网页环境黑白；书叶保持暖纸 */
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #1A1A1A;
+  }
+  .stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 24px 20px;
+    min-height: 0;
+    background:
+      radial-gradient(ellipse at 50% 40%, #3A3A3A 0%, transparent 55%),
+      linear-gradient(180deg, #242424 0%, #1A1A1A 100%);
+  }
+  .topbar {
+    background: rgba(28, 28, 28, 0.96);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: #E8E8E8;
+    backdrop-filter: none;
+  }
+  .topbar .meta { color: #C8C8C8; }
+  .topbar .tools .tool-btn,
+  .topbar .tools a {
+    color: #C8C8C8 !important;
+  }
+  .topbar .tools .tool-btn:hover,
+  .topbar .tools a:hover {
+    color: #F0F0F0 !important;
+    border-color: rgba(180, 80, 70, 0.5);
+  }
+  .seal, .seal.double {
+    border-color: #C45A4A;
+    color: #D08078;
+  }
+  .book {
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(ellipse at 18% 22%, rgba(70,50,30,0.04) 0%, transparent 42%),
+      radial-gradient(ellipse at 78% 68%, rgba(50,40,25,0.03) 0%, transparent 48%);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+  }
+  .book {
+    width: min(760px, 70vw);
+    height: min(800px, 84vh);
+    min-height: 560px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 56px;
+    padding: 48px 64px 72px;
+  }
+  /* 竖排大字碑名 — 偏右 */
+  .title-block {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    height: 78%;
+    justify-content: center;
+  }
+  .title-block h1 {
+    font-family: var(--kaiti);
+    font-size: clamp(44px, 5.6vh, 58px);
+    font-weight: 500;
+    letter-spacing: 0.42em;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+  .title-block .aka {
+    font-family: var(--songti);
+    font-size: 15px;
+    letter-spacing: 0.28em;
+    color: var(--gloss);
+  }
+
+  /* 展签：横排键值，整体竖条，朱线分隔 */
+  .label {
+    writing-mode: horizontal-tb;
+    border-left: 1.5px solid var(--zhu);
+    padding: 8px 0 8px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-self: center;
+    max-width: 14em;
+  }
+  .field .k {
+    display: block;
+    font-family: var(--hei);
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    color: var(--zhu);
+    margin-bottom: 6px;
+  }
+  .field .v {
+    display: block;
+    font-family: var(--songti);
+    font-size: 15px;
+    letter-spacing: 0.1em;
+    line-height: 1.75;
+    color: var(--ink);
+  }
+
+  .enter {
+    position: absolute;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .enter a {
+    font-family: var(--kaiti);
+    font-size: 16px;
+    letter-spacing: 0.35em;
+    color: var(--zhu);
+    border-bottom: 1px solid rgba(156, 42, 32, 0.4);
+    padding-bottom: 4px;
+  }
+  .enter a:hover { border-bottom-color: var(--zhu); }
+  .enter .hint {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+  }
+  .anno-note.tr { top: 14px; right: 16px; text-align: right; }
+  .anno-note.bl { bottom: 14px; left: 16px; }
+
+  @media (max-width: 720px) {
+    .book {
+      width: 92vw;
+      height: auto;
+      min-height: 70vh;
+      flex-direction: column;
+      padding: 36px 28px 80px;
+      gap: 28px;
+    }
+    .title-block { height: auto; }
+    .label {
+      border-left: none;
+      border-top: 1.5px solid var(--zhu);
+      padding: 18px 0 0;
+      max-width: 100%;
+      width: 100%;
+    }
+  }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="seal double" href="index.html">讀帖</a>
+    <span class="meta">集王聖教序 · 扉頁</span>
+    <div class="tools">
+      <a class="tool-btn" href="index.html">目錄</a>
+      <a class="tool-btn" href="read.html">閱讀</a>
+      <a class="tool-btn" href="colophon.html">跋</a>
+    </div>
+  </header>
+
+  <div class="stage">
+    <article class="book frame">
+      <!-- 展签在左，大字碑名在右（竖排书习惯） -->
+      <aside class="label" aria-label="展簽元信息">
+        <div class="field">
+          <span class="k">朝代</span>
+          <span class="v">唐 · 咸亨三年（六七二）刻</span>
+        </div>
+        <div class="field">
+          <span class="k">撰文</span>
+          <span class="v">太宗文皇帝 李世民</span>
+        </div>
+        <div class="field">
+          <span class="k">集書</span>
+          <span class="v">弘福寺沙門懷仁集晉右將軍王羲之書</span>
+        </div>
+        <div class="field">
+          <span class="k">書體</span>
+          <span class="v">行書</span>
+        </div>
+        <div class="field">
+          <span class="k">原石</span>
+          <span class="v">今存西安碑林博物館</span>
+        </div>
+      </aside>
+
+      <div class="title-block">
+        <h1>集王聖教序</h1>
+        <p class="aka">大唐三藏聖教序</p>
+      </div>
+
+      <div class="enter">
+        <a href="read.html">進入閱讀</a>
+        <span class="hint">正文四段 · 句對翻頁</span>
+      </div>
+
+      <div class="anno-note tr">書頁 ≥2/3 寬 · 文武雙欄<br>紙色 #F8F3E4</div>
+      <div class="anno-note bl">豎排大字 · 展簽朱線左側</div>
+    </article>
+  </div>
+</body>
+</html>

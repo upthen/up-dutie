@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>集王聖教序 · 閱讀</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* 网页环境：黑白灰（书叶/版心仍用 shared 暖纸） */
+  :root {
+    --env-floor: #1A1A1A;
+    --env-mid: #242424;
+    --gloss-col-w: 28px;
+    /* 卷轴裱绢 */
+    --paper-deep: #E8DCC0;
+    --mount: #A8B0B8;
+    --mount-deep: #8A949E;
+    --rail-h: min(760px, calc(100vh - var(--chrome) - 72px));
+    --bar-inset: 18px;
+  }
+  body {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--env-floor);
+    color: var(--ink);
+  }
+  .topbar {
+    background: rgba(28, 28, 28, 0.96);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: #E8E8E8;
+    backdrop-filter: none;
+  }
+  .topbar .meta { color: #C8C8C8; }
+  .topbar .seg { border-right-color: rgba(255,255,255,0.12); }
+  .topbar .seg button,
+  .topbar .tools > button,
+  .tool-btn {
+    color: #C8C8C8;
+  }
+  .topbar .seg button:hover,
+  .topbar .tools > button:hover,
+  .tool-btn:hover {
+    color: #F0F0F0;
+    border-color: rgba(180, 80, 70, 0.5);
+  }
+  .topbar .seg button.active,
+  .tool-btn.active {
+    color: #D08078;
+    border-color: #C45A4A;
+  }
+  .seal, .seal.double {
+    border-color: #C45A4A;
+    color: #D08078;
+  }
+  /* 版式切换：线装｜卷轴 */
+  .mode-switch {
+    display: flex;
+    gap: 2px;
+    margin-right: 8px;
+    padding-right: 10px;
+    border-right: 1px solid rgba(255,255,255,0.12);
+    flex-shrink: 0;
+  }
+  .mode-switch button {
+    min-width: 36px;
+    height: 26px;
+    padding: 0 10px;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    color: #C8C8C8;
+    border: 1px solid transparent;
+  }
+  .mode-switch button:hover {
+    color: #F0F0F0;
+    border-color: rgba(180, 80, 70, 0.5);
+  }
+  .mode-switch button.active {
+    color: #D08078;
+    border-color: #C45A4A;
+  }
+
+  .pager {
+    color: rgba(160,160,160,0.85);
+  }
+  .pager button { color: #C8C8C8; }
+  .pager button:hover {
+    color: #D08078;
+    border-color: rgba(196, 90, 74, 0.4);
+  }
+  .pager .num { color: #D08078; }
+
+  .stage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px 0;
+    background:
+      radial-gradient(ellipse at 50% 40%, #3A3A3A 0%, transparent 55%),
+      linear-gradient(180deg, var(--env-mid) 0%, var(--env-floor) 100%);
+  }
+  body.layout-scroll .stage-book,
+  body.layout-book .stage-scroll { display: none !important; }
+  body.layout-scroll .pager-book { display: none !important; }
+  body.layout-book .scroll-bar { display: none !important; }
+  body.layout-scroll #segNav,
+  body.layout-scroll #btnVert,
+  body.layout-scroll #btnHorz { display: none !important; }
+
+  /* ========== 线装 ========== */
+  .book {
+    width: min(1720px, 96vw);
+    height: min(920px, 88vh);
+    min-width: min(720px, 96vw);
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    background: transparent;
+    overflow: visible;
+    perspective: 2400px;
+    perspective-origin: 50% 50%;
+  }
+  .book::before {
+    content: "";
+    position: absolute;
+    inset: 4px -2px -6px;
+    background: rgba(0,0,0,0.35);
+    z-index: -1;
+    pointer-events: none;
+    filter: blur(2px);
+  }
+  .opening {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+    position: relative;
+    transform-style: preserve-3d;
+  }
+  .leaf {
+    flex: 1 1 50%;
+    min-width: 0;
+    position: relative;
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(ellipse at 18% 22%, rgba(70,50,30,0.035) 0%, transparent 42%),
+      radial-gradient(ellipse at 78% 68%, rgba(50,40,25,0.03) 0%, transparent 48%);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .leaf-pad {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 52px 42px 30px;
+  }
+  .leaf-left .leaf-pad { padding-left: 44px; padding-right: 28px; }
+  .leaf-right .leaf-pad { padding-right: 44px; padding-left: 28px; }
+  .text-frame {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    background: var(--paper);
+    overflow: hidden;
+    padding: 4px 8px 12px;
+    box-sizing: border-box;
+  }
+  .rails { display: none !important; }
+  .leaf-right { box-shadow: inset -1px 0 0 rgba(34,26,18,0.12); }
+  .leaf-left { box-shadow: inset 1px 0 0 rgba(34,26,18,0.08); }
+  .banxin {
+    flex: 0 0 46px;
+    position: relative;
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(ellipse at 50% 40%, rgba(70,50,30,0.03) 0%, transparent 60%);
+    border-left: 1px solid rgba(34,26,18,0.45);
+    border-right: 1px solid rgba(34,26,18,0.45);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 52px 0 30px;
+    z-index: 5;
+  }
+  .banxin-inner {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    height: 100%;
+    font-family: var(--songti);
+    color: var(--ink);
+  }
+  .banxin .title-short {
+    font-family: var(--kaiti);
+    font-size: 13px;
+    letter-spacing: 0.32em;
+  }
+  .banxin .juan {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--muted);
+  }
+  .yuwai {
+    writing-mode: horizontal-tb;
+    width: 22px;
+    height: 20px;
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink);
+    opacity: 0.78;
+  }
+  .yuwai .yuwai-mark {
+    font-family: "Songti SC", "SimSun", "Noto Serif CJK TC", serif;
+    font-size: 17px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  .yuwai.yuwai-bot .yuwai-mark { transform: rotate(180deg); }
+  .banxin .ye-code {
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    color: var(--zhu);
+    margin-top: auto;
+  }
+  .banxin .ye-code .sep { opacity: 0.45; margin: 0 0.12em; }
+  .page-flow {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0;
+    overflow: hidden;
+    padding: 0;
+    box-sizing: border-box;
+    border-right: 1px solid var(--grid);
+  }
+
+  /* 共用栏／字（线装＋卷轴） */
+  .pair {
+    position: relative;
+    box-sizing: content-box;
+    flex: 0 0 var(--col-w);
+    width: var(--col-w);
+    min-width: var(--col-w);
+    max-width: var(--col-w);
+    height: 100%;
+    border-left: 1px solid var(--grid);
+    border-right: none;
+    margin: 0;
+    padding: 0;
+  }
+  .pair.slot .col { visibility: hidden; }
+  .col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    padding: 8px 0 20px;
+    margin: 0;
+  }
+  .ch {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: var(--col-w);
+    height: var(--orig-size);
+    margin: 0;
+    padding: 0;
+    flex-shrink: 0;
+    font-family: var(--kaiti);
+    font-size: var(--orig-size);
+    line-height: 1;
+    color: var(--ink);
+    border: none;
+  }
+  .ch.punct { font-size: calc(var(--orig-size) * 0.82); }
+  .ch .seg-dot {
+    position: absolute;
+    top: 4px;
+    right: 5px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--zhu);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .pair.is-gloss {
+    flex-basis: var(--gloss-col-w);
+    width: var(--gloss-col-w);
+    min-width: var(--gloss-col-w);
+    max-width: var(--gloss-col-w);
+  }
+  .pair.is-gloss .col {
+    padding: 8px 0 22px;
+    justify-content: flex-start;
+    overflow: visible;
+  }
+  .jz-col {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    font-family: var(--songti);
+    font-size: var(--gloss-size);
+    line-height: 1.35;
+    letter-spacing: 0.04em;
+    color: var(--gloss);
+    white-space: nowrap;
+  }
+  .jz-inline {
+    display: inline;
+    font-family: var(--songti);
+    font-size: calc(var(--orig-size) * 0.42);
+    color: var(--gloss);
+    margin-left: 0.35em;
+    letter-spacing: 0.04em;
+  }
+  .leaf-empty {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--songti);
+    color: rgba(138,126,104,0.35);
+    letter-spacing: 0.3em;
+    font-size: 13px;
+  }
+
+  body.mode-h .rails { display: none; }
+  body.mode-h .page-flow {
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    padding: 12px 16px;
+    border-right: none;
+  }
+  body.mode-h .pair {
+    flex: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    border: none;
+    border-bottom: 1px solid rgba(122,99,58,0.18);
+    padding-bottom: 10px;
+    max-width: 100%;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+  }
+  body.mode-h .col {
+    border: none;
+    box-shadow: none;
+    background: none;
+    max-height: none;
+    height: auto !important;
+    width: 100%;
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 4px 0;
+    gap: 0;
+  }
+  body.mode-h .ch {
+    display: inline-flex;
+    border: none;
+    width: 1em;
+    height: 1em;
+    font-size: var(--orig-size);
+  }
+  body.mode-h .pair.is-gloss { display: none; }
+  body.mode-h .jz-col { display: none; }
+  body.mode-h .ch .seg-dot { top: 0; left: -0.15em; transform: none; }
+
+  .flip-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+  }
+  .flip-layer.active { visibility: visible; opacity: 1; }
+  .flip-sheet {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: calc((100% - 48px) / 2);
+    transform-style: preserve-3d;
+    transition: transform 0.85s cubic-bezier(0.4, 0.05, 0.2, 1);
+    will-change: transform;
+    z-index: 2;
+  }
+  .flip-sheet.fwd {
+    left: 0;
+    transform-origin: 100% 50%;
+    transform: rotateY(0deg) translateZ(0);
+  }
+  .flip-sheet.fwd.turn { transform: rotateY(165deg) translateZ(0); }
+  .flip-sheet.bak {
+    right: 0;
+    transform-origin: 0% 50%;
+    transform: rotateY(0deg) translateZ(0);
+  }
+  .flip-sheet.bak.turn { transform: rotateY(-165deg) translateZ(0); }
+  .flip-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    background: var(--paper);
+    overflow: hidden;
+    box-shadow: 0 0 0 1.5px rgba(46,36,24,0.45);
+  }
+  .flip-face.front {
+    box-shadow:
+      0 0 0 1.5px rgba(46,36,24,0.45),
+      8px 0 24px rgba(46,36,24,0.18);
+  }
+  .flip-sheet.fwd .flip-face.front {
+    box-shadow:
+      0 0 0 1.5px rgba(46,36,24,0.5),
+      -12px 0 36px rgba(46,36,24,0.28),
+      0 12px 40px rgba(46,36,24,0.15);
+  }
+  .flip-sheet.bak .flip-face.front {
+    box-shadow:
+      0 0 0 1.5px rgba(46,36,24,0.5),
+      12px 0 36px rgba(46,36,24,0.28),
+      0 12px 40px rgba(46,36,24,0.15);
+  }
+  .flip-face.back {
+    transform: rotateY(180deg);
+    box-shadow:
+      0 0 0 1.5px rgba(46,36,24,0.45),
+      inset 0 0 40px rgba(46,36,24,0.06);
+  }
+  .flip-face .leaf-pad { height: 100%; }
+  .flip-face .text-frame { height: 100%; }
+  .flip-shade {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    z-index: 28;
+  }
+  .flip-shade.fwd {
+    left: 0;
+    background: linear-gradient(90deg, transparent, rgba(46,36,24,0.2));
+  }
+  .flip-shade.bak {
+    right: 0;
+    background: linear-gradient(270deg, transparent, rgba(46,36,24,0.2));
+  }
+  .flip-shade.on { opacity: 1; }
+  .corner {
+    position: absolute;
+    bottom: 0;
+    width: 76px;
+    height: 76px;
+    z-index: 40;
+    cursor: pointer;
+  }
+  .corner.left { left: 0; }
+  .corner.right { right: 0; }
+  .corner .hint {
+    position: absolute;
+    bottom: 14px;
+    padding: 6px 10px;
+    background: var(--zhu);
+    color: #F8F3E4;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    font-family: var(--hei);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .18s ease, transform .18s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .corner.left .hint { left: 14px; }
+  .corner.right .hint { right: 14px; }
+  .corner:hover .hint,
+  .corner.show .hint { opacity: 1; transform: translateY(0); }
+  .corner::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    opacity: 0;
+    transition: opacity .18s;
+  }
+  .corner.left::after {
+    left: 0;
+    border-width: 0 0 18px 18px;
+    border-color: transparent transparent rgba(156,42,32,0.35) transparent;
+  }
+  .corner.right::after {
+    right: 0;
+    border-width: 0 18px 18px 0;
+    border-color: transparent rgba(156,42,32,0.35) transparent transparent;
+  }
+  .corner:hover::after { opacity: 1; }
+  .anno-note {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    font-family: var(--hei);
+    font-size: 10px;
+    color: rgba(46,36,24,0.35);
+    letter-spacing: 0.04em;
+    line-height: 1.45;
+    text-align: right;
+    pointer-events: none;
+    z-index: 5;
+  }
+  @media (max-width: 960px) {
+    .book { width: 96vw; height: 82vh; flex-direction: column-reverse; perspective: none; }
+    .banxin {
+      flex: 0 0 34px;
+      flex-direction: row;
+      padding: 0 12px;
+      border-left: none;
+      border-right: none;
+      border-top: 1px solid rgba(46,36,24,0.35);
+      border-bottom: 1px solid rgba(46,36,24,0.35);
+    }
+    .banxin-inner { writing-mode: horizontal-tb; flex-direction: row; height: auto; gap: 10px; }
+    .flip-layer { visibility: hidden !important; opacity: 0 !important; }
+  }
+
+  /* ========== 卷轴 ========== */
+  .stage-scroll {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    padding: 18px 0 12px;
+  }
+  .scroll-stage {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    height: var(--rail-h);
+    width: 90vw;
+    max-width: 90vw;
+    margin: 0 auto;
+    filter: drop-shadow(0 18px 28px rgba(0,0,0,0.45));
+  }
+  .viewport {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    cursor: grab;
+    direction: rtl;
+    border-radius: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(60,60,60,0.55) transparent;
+  }
+  .viewport::-webkit-scrollbar { height: 8px; }
+  .viewport::-webkit-scrollbar-thumb {
+    background: rgba(60,60,60,0.5);
+    border-radius: 4px;
+  }
+  .viewport.is-dragging { cursor: grabbing; scroll-behavior: auto; }
+  .mounting {
+    display: inline-flex;
+    direction: ltr;
+    height: 100%;
+    padding: 20px 28px;
+    background-color: var(--mount);
+    background-image:
+      radial-gradient(ellipse at 20% 30%, rgba(255,255,255,0.18) 0%, transparent 40%),
+      radial-gradient(ellipse at 70% 60%, rgba(40,50,60,0.12) 0%, transparent 45%),
+      repeating-linear-gradient(45deg, transparent 0 10px, rgba(255,255,255,0.04) 10px 11px, transparent 11px 22px),
+      repeating-linear-gradient(-45deg, transparent 0 14px, rgba(30,40,50,0.05) 14px 15px),
+      linear-gradient(180deg, #B8C0C8 0%, var(--mount) 40%, var(--mount-deep) 100%);
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.2),
+      inset 0 0 40px rgba(40,50,60,0.15);
+    min-width: 100%;
+  }
+  .scroll-paper {
+    position: relative;
+    height: 100%;
+    min-height: 100%;
+    align-self: stretch;
+    background:
+      radial-gradient(ellipse at 18% 22%, rgba(70,50,30,0.04) 0%, transparent 42%),
+      radial-gradient(ellipse at 78% 68%, rgba(50,40,25,0.035) 0%, transparent 48%),
+      linear-gradient(180deg, #F7F1E2 0%, var(--paper) 35%, var(--paper-deep) 100%);
+    box-shadow:
+      inset 0 0 60px rgba(180,150,100,0.12),
+      0 0 0 1px rgba(80,60,40,0.18);
+    display: flex;
+    flex-direction: column;
+    min-width: max-content;
+  }
+  .scroll-paper::before,
+  .scroll-paper::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 1.5px solid rgba(50, 38, 26, 0.55);
+    z-index: 3;
+    pointer-events: none;
+  }
+  .scroll-paper::before { top: var(--bar-inset); }
+  .scroll-paper::after { bottom: var(--bar-inset); }
+  .watermark {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(280px, 40vw);
+    height: min(280px, 40vw);
+    border-radius: 50%;
+    border: 1.5px solid rgba(120, 90, 50, 0.07);
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(circle, transparent 42%, rgba(120,90,50,0.05) 48%, transparent 55%);
+  }
+  .watermark::before {
+    content: "壽";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--kaiti);
+    font-size: 7em;
+    color: rgba(120, 90, 50, 0.055);
+    line-height: 1;
+  }
+  .zhu-seal {
+    position: absolute;
+    top: calc(var(--bar-inset) + 8px);
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    border: 1.5px solid var(--zhu);
+    color: var(--zhu);
+    font-family: var(--kaiti);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    line-height: 1.15;
+    opacity: 0.85;
+    z-index: 4;
+    background: rgba(244, 238, 220, 0.35);
+    pointer-events: none;
+  }
+  .paper-pad {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-height: 0;
+    padding: 12px 16px 22px;
+    display: flex;
+    align-items: stretch;
+  }
+  .track {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: stretch;
+    height: 100%;
+    min-width: max-content;
+    border-right: 1px solid var(--grid);
+  }
+  .scroll-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    height: 40px;
+    margin-top: 8px;
+    color: var(--muted);
+    font-family: var(--songti);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    flex-shrink: 0;
+  }
+  .scroll-bar button {
+    color: #C8C8C8;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    padding: 4px 14px;
+    border: 1px solid transparent;
+  }
+  .scroll-bar button:hover {
+    color: #D08078;
+    border-color: rgba(196, 90, 74, 0.4);
+  }
+  .scroll-bar .hint {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: rgba(140, 140, 140, 0.75);
+  }
+  @media (max-width: 720px) {
+    .stage-scroll { padding: 10px 8px 6px; }
+    .scroll-stage { width: 96vw; max-width: 96vw; }
+    .mounting { padding: 14px 14px; }
+  }
+</style>
+</head>
+<body class="layout-book">
+  <header class="topbar">
+    <a class="seal double" href="index.html">讀帖</a>
+    <span class="meta" id="topMeta">集王聖教序 · 刻本夾注 · 往右翻</span>
+    <div class="mode-switch" role="group" aria-label="版式">
+      <button type="button" id="btnModeBook" class="active" title="線裝對開">線裝</button>
+      <button type="button" id="btnModeScroll" title="中古卷軸">卷軸</button>
+    </div>
+    <nav class="seg" id="segNav" aria-label="段落跳轉">
+      <button type="button" data-seg="1" class="active">段一</button>
+      <button type="button" data-seg="2">段二</button>
+      <button type="button" data-seg="3">段三</button>
+      <button type="button" data-seg="4">段四</button>
+    </nav>
+    <div class="tools">
+      <button type="button" id="btnTrad" class="active" title="繁體原文">繁</button>
+      <button type="button" id="btnSimp" title="簡體原文">簡</button>
+      <button type="button" id="btnVert" class="active" title="豎排">豎</button>
+      <button type="button" id="btnHorz" title="橫排">橫</button>
+      <button type="button" id="btnSmaller" title="縮小">A－</button>
+      <button type="button" id="btnLarger" title="放大">A＋</button>
+      <a class="tool-btn" href="title.html">扉</a>
+      <a class="tool-btn" href="colophon.html">跋</a>
+    </div>
+  </header>
+
+  <div class="stage stage-book" id="stageBook">
+    <div class="book" id="book">
+      <div class="opening" id="opening">
+        <div class="leaf leaf-left" id="leafLeft">
+          <div class="leaf-pad">
+            <div class="text-frame frame">
+              <div class="rails" aria-hidden="true"></div>
+              <div class="page-flow" id="flowLeft"></div>
+            </div>
+          </div>
+        </div>
+        <aside class="banxin" aria-label="版心書口">
+          <div class="banxin-inner">
+            <span class="yuwai" title="上魚尾"><span class="yuwai-mark">︻</span></span>
+            <span class="title-short">聖教序</span>
+            <span class="juan" id="banxinJuan">段一</span>
+            <span class="ye-code" id="banxinYe">一<span class="sep">｜</span>二</span>
+            <span class="yuwai yuwai-bot" title="下魚尾"><span class="yuwai-mark">︻</span></span>
+          </div>
+        </aside>
+        <div class="leaf leaf-right" id="leafRight">
+          <div class="leaf-pad">
+            <div class="text-frame frame">
+              <div class="rails" aria-hidden="true"></div>
+              <div class="page-flow" id="flowRight"></div>
+              <div class="anno-note">原文大字欄 · 左鄰豎排釋義</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flip-shade fwd" id="shadeFwd"></div>
+      <div class="flip-shade bak" id="shadeBak"></div>
+      <div class="flip-layer" id="flipLayer" aria-hidden="true"></div>
+      <div class="corner left" id="cornerPrev" title="前一開"><span class="hint">← 前一開</span></div>
+      <div class="corner right" id="cornerNext" title="後一開"><span class="hint">後一開 →</span></div>
+    </div>
+  </div>
+
+  <div class="stage stage-scroll" id="stageScroll">
+    <div class="scroll-stage" id="scrollStage">
+      <div class="viewport" id="viewport" tabindex="0" aria-label="卷軸紙心，橫向捲動閱讀">
+        <div class="mounting" id="mounting">
+          <div class="scroll-paper" id="scrollPaper">
+            <div class="watermark" aria-hidden="true"></div>
+            <div class="zhu-seal" aria-hidden="true">御覽</div>
+            <div class="paper-pad" id="paperPad">
+              <div class="track" id="track"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="pager pager-book" id="bookPager">
+    <button type="button" id="btnPrev">前開</button>
+    <span class="num" id="pageNum">一／一開</span>
+    <button type="button" id="btnNext">後開</button>
+  </footer>
+
+  <div class="scroll-bar" id="scrollBar">
+    <button type="button" id="btnRollLeft" title="向左捲（讀後方）">← 捲左</button>
+    <span class="hint">滾輪／拖曳／←→ · 右起豎讀</span>
+    <button type="button" id="btnRollRight" title="向右捲（回起首）">捲右 →</button>
+  </div>
+
+<script src="pairs-data.js"></script>
+<script>
+const PAIRS = window.BEITIE_PAIRS;
+const SIZE = window.BEITIE_SIZE;
+const FLIP_MS = 850;
+const LS_MODE = "beitie-reader-mode";
+const LS_TRAD = "beitie-reader-trad";
+const LS_SIZE = "beitie-reader-origSize";
+
+const CN_NUM = ["〇","一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五","十六","十七","十八","十九","二十"];
+function toCN(n) {
+  if (n <= 20) return CN_NUM[n];
+  if (n < 100) {
+    const t = Math.floor(n / 10), o = n % 10;
+    return (t === 1 ? "十" : CN_NUM[t] + "十") + (o ? CN_NUM[o] : "");
+  }
+  return String(n);
+}
+
+function loadPrefs() {
+  const q = new URLSearchParams(location.search);
+  let mode = q.get("mode");
+  if (mode === "book" || mode === "scroll") {
+    /* URL wins */
+  } else {
+    try { mode = localStorage.getItem(LS_MODE); } catch (_) {}
+  }
+  if (mode !== "book" && mode !== "scroll") mode = "book";
+
+  let trad = true;
+  try {
+    const t = localStorage.getItem(LS_TRAD);
+    if (t === "0") trad = false;
+    else if (t === "1") trad = true;
+  } catch (_) {}
+
+  let origSize = SIZE.origDefault;
+  try {
+    const s = parseInt(localStorage.getItem(LS_SIZE), 10);
+    if (s >= SIZE.origMin && s <= SIZE.origMax) origSize = s;
+  } catch (_) {}
+
+  return { mode, trad, origSize };
+}
+
+function savePrefs() {
+  try {
+    localStorage.setItem(LS_MODE, state.mode);
+    localStorage.setItem(LS_TRAD, state.trad ? "1" : "0");
+    localStorage.setItem(LS_SIZE, String(state.origSize));
+  } catch (_) {}
+}
+
+const prefs = loadPrefs();
+const state = {
+  mode: prefs.mode,
+  opening: 0,
+  leaves: [],
+  openings: [],
+  trad: prefs.trad,
+  vertical: true,
+  origSize: prefs.origSize,
+  animating: false,
+};
+
+const els = {
+  opening: document.getElementById("opening"),
+  flowLeft: document.getElementById("flowLeft"),
+  flowRight: document.getElementById("flowRight"),
+  leafLeft: document.getElementById("leafLeft"),
+  leafRight: document.getElementById("leafRight"),
+  book: document.getElementById("book"),
+  pageNum: document.getElementById("pageNum"),
+  cornerNext: document.getElementById("cornerNext"),
+  cornerPrev: document.getElementById("cornerPrev"),
+  banxinYe: document.getElementById("banxinYe"),
+  banxinJuan: document.getElementById("banxinJuan"),
+  flipLayer: document.getElementById("flipLayer"),
+  shadeFwd: document.getElementById("shadeFwd"),
+  shadeBak: document.getElementById("shadeBak"),
+  viewport: document.getElementById("viewport"),
+  track: document.getElementById("track"),
+  paperPad: document.getElementById("paperPad"),
+  topMeta: document.getElementById("topMeta"),
+};
+
+function isPunct(ch) {
+  return /[，。；：、？！「」『』（）—…·《》〈〉,.\!?;:'"()\-\s]/.test(ch);
+}
+
+function colW() { return Math.round(state.origSize * SIZE.colRatio); }
+function glossSize() { return Math.max(SIZE.glossMin, Math.round(state.origSize * SIZE.glossRatio)); }
+function glossColW() { return Math.round(glossSize() * 1.55); }
+function glossStep() { return glossSize() * 1.55; }
+function charsPerGlossCol(colH) {
+  return Math.max(1, Math.floor((colH - 24) / glossStep()));
+}
+function colWidthOf(col) {
+  return (col && col.kind === "gloss") ? glossColW() : colW();
+}
+
+function applySizes() {
+  const w = colW();
+  const gs = glossSize();
+  document.documentElement.style.setProperty("--orig-size", state.origSize + "px");
+  document.documentElement.style.setProperty("--col-w", w + "px");
+  document.documentElement.style.setProperty("--gloss-size", gs + "px");
+  document.documentElement.style.setProperty("--gloss-col-w", Math.round(gs * 1.55) + "px");
+}
+
+function syncTradButtons() {
+  document.getElementById("btnTrad").classList.toggle("active", state.trad);
+  document.getElementById("btnSimp").classList.toggle("active", !state.trad);
+}
+
+function setMode(mode, pushUrl) {
+  if (mode !== "book" && mode !== "scroll") mode = "book";
+  state.mode = mode;
+  document.body.classList.toggle("layout-book", mode === "book");
+  document.body.classList.toggle("layout-scroll", mode === "scroll");
+  document.getElementById("btnModeBook").classList.toggle("active", mode === "book");
+  document.getElementById("btnModeScroll").classList.toggle("active", mode === "scroll");
+  els.topMeta.textContent = mode === "book"
+    ? "集王聖教序 · 刻本夾注 · 往右翻"
+    : "集王聖教序 · 中古卷軸";
+  savePrefs();
+  if (pushUrl !== false) {
+    const url = new URL(location.href);
+    url.searchParams.set("mode", mode);
+    history.replaceState(null, "", url);
+  }
+  applySizes();
+  requestAnimationFrame(() => {
+    if (mode === "book") {
+      paginateBook();
+      paintBook();
+    } else {
+      paintScroll(false);
+    }
+  });
+}
+
+/* —— 共用装箱 —— */
+function packColumns(colH) {
+  const perGloss = charsPerGlossCol(colH);
+  const columns = [];
+  let lastSeg = null;
+  PAIRS.forEach((p, pi) => {
+    const text = state.trad ? p.trad : p.simp;
+    const chars = [...text];
+    let buf = [];
+    let used = 0;
+    chars.forEach((ch, ci) => {
+      const uh = state.origSize;
+      if (used + uh > colH && buf.length) {
+        columns.push({ kind: "orig", seg: p.seg, pair: pi, units: buf });
+        buf = [];
+        used = 0;
+      }
+      buf.push({
+        type: "ch", ch, punct: isPunct(ch), seg: p.seg, pair: pi,
+        segMark: ci === 0 && p.seg !== lastSeg,
+      });
+      used += uh;
+    });
+    if (buf.length) columns.push({ kind: "orig", seg: p.seg, pair: pi, units: buf });
+    lastSeg = p.seg;
+    const gch = [...p.gloss].filter(c => c.trim() !== "");
+    for (let i = 0; i < gch.length; i += perGloss) {
+      columns.push({ kind: "gloss", seg: p.seg, pair: pi, text: gch.slice(i, i + perGloss).join("") });
+    }
+  });
+  return columns;
+}
+
+function renderUnit(u) {
+  if (u.type === "ch") {
+    const mark = u.segMark ? `<i class="seg-dot" aria-hidden="true"></i>` : "";
+    return `<span class="ch${u.punct ? " punct" : ""}">${mark}${u.ch}</span>`;
+  }
+  return "";
+}
+
+function renderColumn(col) {
+  if (!col) return "";
+  const segAttr = col.seg != null ? ` data-seg="${col.seg}"` : "";
+  if (col.kind === "gloss") {
+    const n = [...col.text].length;
+    const h = Math.ceil(n * glossStep());
+    return `<article class="pair is-gloss"${segAttr}><div class="col"><span class="jz-col" style="height:${h}px">${col.text}</span></div></article>`;
+  }
+  if (col.kind === "row") {
+    const chars = col.units.map(renderUnit).join("");
+    const gloss = col.gloss ? `<span class="jz-inline">${col.gloss}</span>` : "";
+    return `<article class="pair"${segAttr}><div class="col">${chars}${gloss}</div></article>`;
+  }
+  const html = (col.units || []).map(renderUnit).join("");
+  return `<article class="pair"${segAttr}><div class="col">${html}</div></article>`;
+}
+
+function renderSlot() {
+  return `<article class="pair slot" aria-hidden="true"><div class="col"></div></article>`;
+}
+
+/* —— 线装 —— */
+function measureLeafBox() {
+  const frame = els.leafRight.querySelector(".text-frame");
+  const flow = els.flowRight;
+  const r = (frame || flow || els.leafRight).getBoundingClientRect();
+  return {
+    w: Math.max(r.width - 14, 240),
+    h: Math.max(r.height - 8, 360),
+  };
+}
+function usableColHBook() {
+  const { h } = measureLeafBox();
+  return Math.max(120, h - 56);
+}
+
+function paginateBook(fromSeg) {
+  const colH = usableColHBook();
+  const leafW = measureLeafBox().w;
+  state._leafW = leafW;
+
+  if (!state.vertical) {
+    const rowH = state.origSize * 1.35 + 28;
+    const per = Math.max(3, Math.min(6, Math.floor(colH / rowH)));
+    const leaves = [];
+    for (let i = 0; i < PAIRS.length; i += per) {
+      const chunk = PAIRS.slice(i, i + per);
+      const cols = chunk.map((p, j) => {
+        const text = state.trad ? p.trad : p.simp;
+        const units = [...text].map((ch, ci) => ({
+          type: "ch", ch, punct: isPunct(ch), seg: p.seg, pair: i + j, segMark: ci === 0,
+        }));
+        return { kind: "row", seg: p.seg, pair: i + j, units, gloss: p.gloss };
+      });
+      leaves.push(cols);
+    }
+    state.leaves = leaves.length ? leaves : [[]];
+  } else {
+    const columns = packColumns(colH);
+    const leaves = [];
+    let leaf = [];
+    let usedW = 0;
+    columns.forEach(col => {
+      const cw = colWidthOf(col) + 1;
+      if (usedW + cw > leafW && leaf.length) {
+        leaves.push(leaf);
+        leaf = [];
+        usedW = 0;
+      }
+      leaf.push(col);
+      usedW += cw;
+    });
+    if (leaf.length) leaves.push(leaf);
+    state.leaves = leaves.length ? leaves : [[]];
+  }
+
+  const openings = [];
+  for (let i = 0; i < state.leaves.length; i += 2) {
+    openings.push({ right: i, left: i + 1 < state.leaves.length ? i + 1 : null });
+  }
+  state.openings = openings.length ? openings : [{ right: 0, left: null }];
+
+  if (fromSeg != null) {
+    let found = -1;
+    outer: for (let li = 0; li < state.leaves.length; li++) {
+      for (const col of state.leaves[li]) {
+        if (col.kind === "orig" && (col.units || []).some(u => u.seg === fromSeg && u.segMark)) {
+          found = li; break outer;
+        }
+        if (col.kind === "row" && col.seg === fromSeg && (col.units || []).some(u => u.segMark)) {
+          found = li; break outer;
+        }
+      }
+    }
+    if (found >= 0) {
+      const oi = state.openings.findIndex(o => o.right === found || o.left === found);
+      state.opening = oi >= 0 ? oi : 0;
+    }
+  } else {
+    state.opening = Math.min(state.opening, state.openings.length - 1);
+  }
+}
+
+function syncColHeights(root) {
+  if (!root || !state.vertical) return;
+  const maxH = root.clientHeight || 600;
+  root.querySelectorAll(".pair").forEach(pair => { pair.style.height = maxH + "px"; });
+}
+
+function leafHTML(leafIdx) {
+  const cols = (leafIdx == null || !state.leaves[leafIdx]) ? [] : state.leaves[leafIdx];
+  let html = "";
+  let usedW = 0;
+  cols.forEach(col => {
+    html += renderColumn(col);
+    usedW += colWidthOf(col) + 1;
+  });
+  if (state.vertical) {
+    const leafW = state._leafW || measureLeafBox().w;
+    const slotW = colW() + 1;
+    while (usedW + slotW <= leafW + 0.5) {
+      html += renderSlot();
+      usedW += slotW;
+    }
+  }
+  return html;
+}
+
+function fillLeaf(flowEl, leafIdx) {
+  flowEl.innerHTML = leafHTML(leafIdx);
+}
+
+function leafFirstSeg(leafIdx) {
+  const cols = state.leaves[leafIdx];
+  if (!cols || !cols.length) return 1;
+  for (const col of cols) {
+    if (col && col.seg != null) return col.seg;
+    if (col && col.units) {
+      for (const u of col.units) {
+        if (u && u.seg != null) return u.seg;
+      }
+    }
+  }
+  return 1;
+}
+
+function updateChromeBook() {
+  const totalOpen = state.openings.length;
+  const cur = state.opening + 1;
+  const op = state.openings[state.opening] || { right: 0, left: null };
+  const r = op.right + 1;
+  const l = op.left != null ? op.left + 1 : null;
+  const leafRange = l != null ? `${toCN(r)}～${toCN(l)}` : toCN(r);
+  els.pageNum.textContent = `${toCN(cur)}／${toCN(totalOpen)}開 · ${leafRange}／${toCN(state.leaves.length)}葉`;
+  els.banxinYe.innerHTML = l != null
+    ? `${toCN(r)}<span class="sep">｜</span>${toCN(l)}`
+    : toCN(r);
+  const seg = leafFirstSeg(op.right);
+  els.banxinJuan.textContent = `段${toCN(seg)}`;
+  document.querySelectorAll("#segNav button").forEach(b => {
+    b.classList.toggle("active", Number(b.dataset.seg) === seg);
+  });
+  document.getElementById("btnPrev").disabled = state.opening <= 0;
+  document.getElementById("btnNext").disabled = state.opening >= totalOpen - 1;
+  els.cornerPrev.style.visibility = state.opening <= 0 ? "hidden" : "visible";
+  els.cornerNext.style.visibility = state.opening >= totalOpen - 1 ? "hidden" : "visible";
+}
+
+function paintBook() {
+  const op = state.openings[state.opening] || { right: 0, left: null };
+  fillLeaf(els.flowRight, op.right);
+  fillLeaf(els.flowLeft, op.left);
+  requestAnimationFrame(() => {
+    syncColHeights(els.flowRight);
+    syncColHeights(els.flowLeft);
+  });
+  updateChromeBook();
+}
+
+function buildFlipFaceHTML(flowHTML) {
+  return `<div class="leaf-pad"><div class="text-frame frame"><div class="rails" aria-hidden="true"></div><div class="page-flow">${flowHTML}</div></div></div>`;
+}
+
+function runFlip(delta) {
+  return new Promise(resolve => {
+    const nextIdx = state.opening + delta;
+    const curOp = state.openings[state.opening];
+    const nextOp = state.openings[nextIdx];
+    let frontHTML, backHTML;
+    if (delta > 0) {
+      frontHTML = leafHTML(curOp.left);
+      backHTML = leafHTML(nextOp.right);
+    } else {
+      frontHTML = leafHTML(curOp.right);
+      backHTML = leafHTML(nextOp.left);
+    }
+    const sheet = document.createElement("div");
+    sheet.className = "flip-sheet " + (delta > 0 ? "fwd" : "bak");
+    sheet.style.transform = "rotateY(0deg)";
+    sheet.innerHTML =
+      `<div class="flip-face front frame">${buildFlipFaceHTML(frontHTML)}</div>` +
+      `<div class="flip-face back frame">${buildFlipFaceHTML(backHTML)}</div>`;
+    els.flipLayer.innerHTML = "";
+    els.flipLayer.appendChild(sheet);
+    els.flipLayer.classList.add("active");
+    const shade = delta > 0 ? els.shadeFwd : els.shadeBak;
+    shade.classList.add("on");
+    if (delta > 0) els.leafLeft.style.visibility = "hidden";
+    else els.leafRight.style.visibility = "hidden";
+    sheet.querySelectorAll(".page-flow").forEach(syncColHeights);
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      state.opening = nextIdx;
+      els.leafLeft.style.visibility = "";
+      els.leafRight.style.visibility = "";
+      els.flipLayer.classList.remove("active");
+      els.flipLayer.innerHTML = "";
+      shade.classList.remove("on");
+      paintBook();
+      resolve();
+    };
+    const from = "rotateY(0deg)";
+    const to = delta > 0 ? "rotateY(165deg)" : "rotateY(-165deg)";
+    sheet.style.transform = from;
+    const anim = sheet.animate(
+      [{ transform: from }, { transform: to }],
+      { duration: FLIP_MS, easing: "cubic-bezier(0.4, 0.05, 0.2, 1)", fill: "forwards" }
+    );
+    anim.onfinish = done;
+    setTimeout(done, FLIP_MS + 120);
+  });
+}
+
+async function goBook(delta) {
+  if (state.animating || state.mode !== "book") return;
+  const next = state.opening + delta;
+  if (next < 0 || next >= state.openings.length) return;
+  state.animating = true;
+  const narrow = window.matchMedia("(max-width: 960px)").matches;
+  try {
+    if (narrow || !state.vertical) {
+      state.opening = next;
+      paintBook();
+    } else {
+      await runFlip(delta);
+    }
+  } finally {
+    state.animating = false;
+  }
+}
+
+function rebuildBook(keepSeg) {
+  const op = state.openings[state.opening];
+  const seg = keepSeg && op ? leafFirstSeg(op.right) : null;
+  paginateBook(seg);
+  paintBook();
+}
+
+/* —— 卷轴 —— */
+function usableColHScroll() {
+  const pad = els.paperPad;
+  if (!pad) return 560;
+  const cs = getComputedStyle(pad);
+  const pt = parseFloat(cs.paddingTop) || 0;
+  const pb = parseFloat(cs.paddingBottom) || 0;
+  const inner = pad.clientHeight - pt - pb;
+  return Math.max(160, Math.floor(inner - 56));
+}
+
+function paintScroll(keepScrollRatio) {
+  const vp = els.viewport;
+  let ratio = 0;
+  if (keepScrollRatio && vp.scrollWidth > vp.clientWidth) {
+    ratio = vp.scrollLeft / (vp.scrollWidth - vp.clientWidth || 1);
+  }
+  const columns = packColumns(usableColHScroll());
+  els.track.innerHTML = columns.map(renderColumn).join("");
+  requestAnimationFrame(() => {
+    if (!keepScrollRatio) {
+      vp.scrollLeft = 0;
+    } else {
+      const max = vp.scrollWidth - vp.clientWidth;
+      if (max > 0) vp.scrollLeft = ratio * max;
+    }
+  });
+}
+
+function rebuildScroll() {
+  applySizes();
+  paintScroll(true);
+}
+
+function rollBy(dx) {
+  els.viewport.scrollBy({ left: dx, behavior: "smooth" });
+}
+
+function rebuildActive(keepSeg) {
+  applySizes();
+  savePrefs();
+  if (state.mode === "book") rebuildBook(keepSeg);
+  else rebuildScroll();
+}
+
+/* —— 控件 —— */
+document.getElementById("btnModeBook").addEventListener("click", () => setMode("book"));
+document.getElementById("btnModeScroll").addEventListener("click", () => setMode("scroll"));
+
+document.getElementById("btnNext").addEventListener("click", () => goBook(1));
+document.getElementById("btnPrev").addEventListener("click", () => goBook(-1));
+els.cornerNext.addEventListener("click", () => goBook(1));
+els.cornerPrev.addEventListener("click", () => goBook(-1));
+
+document.getElementById("btnRollLeft").addEventListener("click", () => rollBy(280));
+document.getElementById("btnRollRight").addEventListener("click", () => rollBy(-280));
+
+document.getElementById("btnTrad").addEventListener("click", () => {
+  state.trad = true;
+  syncTradButtons();
+  rebuildActive(true);
+});
+document.getElementById("btnSimp").addEventListener("click", () => {
+  state.trad = false;
+  syncTradButtons();
+  rebuildActive(true);
+});
+document.getElementById("btnVert").addEventListener("click", () => {
+  state.vertical = true;
+  document.body.classList.remove("mode-h");
+  document.getElementById("btnVert").classList.add("active");
+  document.getElementById("btnHorz").classList.remove("active");
+  if (state.mode === "book") rebuildBook(true);
+});
+document.getElementById("btnHorz").addEventListener("click", () => {
+  state.vertical = false;
+  document.body.classList.add("mode-h");
+  document.getElementById("btnHorz").classList.add("active");
+  document.getElementById("btnVert").classList.remove("active");
+  if (state.mode === "book") rebuildBook(true);
+});
+document.getElementById("btnLarger").addEventListener("click", () => {
+  if (state.origSize >= SIZE.origMax) return;
+  state.origSize += 2;
+  rebuildActive(true);
+});
+document.getElementById("btnSmaller").addEventListener("click", () => {
+  if (state.origSize <= SIZE.origMin) return;
+  state.origSize -= 2;
+  rebuildActive(true);
+});
+document.querySelectorAll("#segNav button").forEach(b => {
+  b.addEventListener("click", () => {
+    if (state.mode !== "book") return;
+    paginateBook(Number(b.dataset.seg));
+    paintBook();
+  });
+});
+
+document.addEventListener("keydown", e => {
+  if (state.mode === "book") {
+    if (e.key === "ArrowRight") { e.preventDefault(); goBook(1); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); goBook(-1); }
+  } else {
+    if (e.key === "ArrowLeft") { e.preventDefault(); rollBy(220); }
+    if (e.key === "ArrowRight") { e.preventDefault(); rollBy(-220); }
+  }
+});
+
+let wheelLock = 0;
+els.book.addEventListener("wheel", e => {
+  if (state.mode !== "book") return;
+  const now = Date.now();
+  if (now - wheelLock < 500) return;
+  if (Math.abs(e.deltaY) < 20 && Math.abs(e.deltaX) < 20) return;
+  wheelLock = now;
+  goBook((e.deltaY > 0 || e.deltaX > 0) ? 1 : -1);
+}, { passive: true });
+
+els.viewport.addEventListener("wheel", e => {
+  if (state.mode !== "scroll") return;
+  if (Math.abs(e.deltaY) >= Math.abs(e.deltaX) && Math.abs(e.deltaY) > 2) {
+    e.preventDefault();
+    els.viewport.scrollLeft += e.deltaY;
+  }
+}, { passive: false });
+
+(function enableDrag() {
+  const vp = els.viewport;
+  let down = false, startX = 0, startScroll = 0;
+  vp.addEventListener("pointerdown", e => {
+    if (state.mode !== "scroll" || e.button !== 0) return;
+    down = true;
+    startX = e.clientX;
+    startScroll = vp.scrollLeft;
+    vp.classList.add("is-dragging");
+    vp.setPointerCapture(e.pointerId);
+  });
+  vp.addEventListener("pointermove", e => {
+    if (!down) return;
+    vp.scrollLeft = startScroll + (startX - e.clientX);
+  });
+  const end = () => { down = false; vp.classList.remove("is-dragging"); };
+  vp.addEventListener("pointerup", end);
+  vp.addEventListener("pointercancel", end);
+})();
+
+window.addEventListener("resize", () => {
+  clearTimeout(window.__rt);
+  window.__rt = setTimeout(() => rebuildActive(true), 180);
+});
+
+setTimeout(() => {
+  if (state.mode !== "book") return;
+  els.cornerNext.classList.add("show");
+  setTimeout(() => els.cornerNext.classList.remove("show"), 1400);
+}, 500);
+
+syncTradButtons();
+setMode(state.mode, true);
+</script>
+</body>
+</html>

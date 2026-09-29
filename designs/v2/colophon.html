@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>集王聖教序 · 跋</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* 网页环境黑白；书叶保持暖纸 */
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #1A1A1A;
+  }
+  .stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 24px 24px;
+    min-height: 0;
+    background:
+      radial-gradient(ellipse at 50% 40%, #3A3A3A 0%, transparent 55%),
+      linear-gradient(180deg, #242424 0%, #1A1A1A 100%);
+  }
+  .topbar {
+    background: rgba(28, 28, 28, 0.96);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: #E8E8E8;
+    backdrop-filter: none;
+  }
+  .topbar .meta { color: #C8C8C8; }
+  .topbar .tools .tool-btn,
+  .topbar .tools a {
+    color: #C8C8C8 !important;
+  }
+  .topbar .tools .tool-btn:hover,
+  .topbar .tools a:hover {
+    color: #F0F0F0 !important;
+    border-color: rgba(180, 80, 70, 0.5);
+  }
+  .seal, .seal.double {
+    border-color: #C45A4A;
+    color: #D08078;
+  }
+  .book {
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(ellipse at 18% 22%, rgba(70,50,30,0.04) 0%, transparent 42%),
+      radial-gradient(ellipse at 78% 68%, rgba(50,40,25,0.03) 0%, transparent 48%);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+  }
+  .book {
+    width: min(680px, 66vw);
+    height: min(760px, 80vh);
+    min-height: 520px;
+    padding: 52px 56px 48px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .head {
+    font-family: var(--kaiti);
+    font-size: 22px;
+    letter-spacing: 0.4em;
+    color: var(--zhu);
+    margin-bottom: 28px;
+  }
+  .jiaokan {
+    flex: 1;
+    font-family: var(--songti);
+    font-size: 15px;
+    line-height: 2.05;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+  }
+  .jiaokan h2 {
+    font-family: var(--kaiti);
+    font-size: 17px;
+    letter-spacing: 0.28em;
+    font-weight: 500;
+    margin: 0 0 14px;
+  }
+  .jiaokan p { margin-bottom: 1.1em; }
+  .jiaokan .em {
+    color: var(--zhu);
+    border-bottom: 1px solid rgba(156, 42, 32, 0.35);
+  }
+  .jiaokan .note {
+    color: var(--gloss);
+    font-size: 13.5px;
+    line-height: 1.95;
+  }
+  .zhong {
+    margin-top: 36px;
+    text-align: center;
+    font-family: var(--kaiti);
+    font-size: 42px;
+    color: var(--zhu);
+    letter-spacing: 0.5em;
+    line-height: 1;
+  }
+  .nav-back {
+    margin-top: 28px;
+    text-align: center;
+    writing-mode: horizontal-tb;
+  }
+  .nav-back a {
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    border-bottom: 1px solid transparent;
+  }
+  .nav-back a:hover { color: var(--zhu); border-bottom-color: rgba(156,42,32,0.4); }
+  .anno-note.br { bottom: 16px; right: 18px; text-align: right; }
+  @media (max-width: 720px) {
+    .book { width: 92vw; height: auto; min-height: 70vh; padding: 36px 28px; }
+  }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="seal double" href="index.html">讀帖</a>
+    <span class="meta">集王聖教序 · 跋 · 校記</span>
+    <div class="tools">
+      <a class="tool-btn" href="read.html">閱讀</a>
+      <a class="tool-btn" href="title.html">扉</a>
+      <a class="tool-btn" href="index.html">目錄</a>
+    </div>
+  </header>
+
+  <div class="stage">
+    <article class="book frame">
+      <div class="head">校　記</div>
+      <div class="jiaokan">
+        <h2>用字與異文</h2>
+        <p>碑文「<span class="em">涂間失地</span>」之「<span class="em">涂</span>」，通「<span class="em">途</span>」。碑刻多用「涂」字，今釋義從通行義作「途」，於原文仍存碑面用字，以見原石面目。</p>
+        <p class="note">懷仁集字，取王羲之行書入碑，一字一源，間有異體、通假。本站原文依碑面繁體錄入；釋義用現代漢語，不強與碑字一一對寫。</p>
+        <p class="note">正文《大唐三藏聖教序》四段，設計稿僅錄部分句對作版式示範；定稿將補全四十餘句。</p>
+      </div>
+      <div class="zhong" title="終">終</div>
+      <div class="nav-back">
+        <a href="read.html">← 返回閱讀</a>
+        &nbsp;·&nbsp;
+        <a href="index.html">目錄</a>
+      </div>
+      <div class="anno-note br">朱字「終」#9C2A20 · 楷體大字<br>頁尾留白如古籍</div>
+    </article>
+  </div>
+</body>
+</html>
