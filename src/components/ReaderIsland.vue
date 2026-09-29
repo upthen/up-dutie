@@ -1247,7 +1247,10 @@ watch(opening, syncHash);
 }
 .viewport.is-dragging { cursor: grabbing; scroll-behavior: auto; }
 .mounting {
-  display: inline-flex;
+  /* 宽度随内容收放：短卷居中、长卷照常横向卷动（margin auto 在溢出时归零） */
+  display: flex;
+  width: fit-content;
+  margin-inline: auto;
   direction: ltr;
   height: 100%;
   padding: 20px 28px;
@@ -1261,7 +1264,6 @@ watch(opening, syncHash);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.2),
     inset 0 0 40px rgba(40, 50, 60, 0.15);
-  min-width: 100%;
 }
 .scroll-paper {
   position: relative;
