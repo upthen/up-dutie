@@ -80,7 +80,10 @@ const cur = computed(() => openings.value[opening.value] ?? { right: 0, left: nu
 const hasPrev = computed(() => opening.value > 0);
 const hasNext = computed(() => opening.value < openings.value.length - 1);
 const activeSeg = computed(() => leafFirstSeg(leaves.value[cur.value.right]));
-const titleShort = computed(() => props.entry.title.slice(-3));
+/** 版心短名：四字以内用全名（喪亂三帖），更长的取末三字（集王聖教序→聖教序） */
+const titleShort = computed(() =>
+  [...props.entry.title].length <= 4 ? props.entry.title : props.entry.title.slice(-3),
+);
 const topMeta = computed(() =>
   mode.value === 'book' ? `${props.entry.title} · 刻本夾注 · 往右翻` : `${props.entry.title} · 中古卷軸`,
 );
