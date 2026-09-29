@@ -6,7 +6,8 @@ dist/
 # deps
 node_modules/
 
-# 只用 npm（package-lock.json）；pnpm/yarn 锁文件一律不入库
+# 不收任何锁文件（package-lock.json 亦由维护者移除）；依赖版本以 package.json 为准
+package-lock.json
 pnpm-lock.yaml
 pnpm-workspace.yaml
 yarn.lock
