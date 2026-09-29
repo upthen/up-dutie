@@ -6,6 +6,11 @@ dist/
 # deps
 node_modules/
 
+# 只用 npm（package-lock.json）；pnpm/yarn 锁文件一律不入库
+pnpm-lock.yaml
+pnpm-workspace.yaml
+yarn.lock
+
 # misc
 *.log
 .DS_Store
