@@ -192,6 +192,23 @@ function scrollMetrics(): Metrics {
   };
 }
 
+/* —— 度量自愈：初次分页若发生在面板尺寸/样式未稳时（刷新即乱、开 F12 才恢复的根源），
+      就绪信号到达后若度量与分页时不一致则重分页；一致则零开销 —— */
+let paginatedKey = '';
+
+function measuredKey(): string {
+  if (mode.value === 'book') {
+    const b = measureLeafBox();
+    return `b${Math.round(b.w)}x${Math.round(b.h)}`;
+  }
+  return `s${Math.round(scrollMetrics().colH)}`;
+}
+
+function rebuildIfChanged() {
+  if (measuredKey() === paginatedKey) return;
+  rebuild(true);
+}
+
 /** 重分页；keepSeg 给定时定位到该段首句所在开（保持阅读位置） */
 function repaginate(keepSeg?: number | null) {
   const m = currentMetrics();
@@ -209,6 +226,7 @@ function repaginate(keepSeg?: number | null) {
     opening.value = Math.min(opening.value, openings.value.length - 1);
   }
   leaves.value = next;
+  paginatedKey = measuredKey();
 }
 
 /* —— 界行渲染（书叶、卷轴、翻页面页共用） —— */
@@ -271,6 +289,7 @@ async function paintScroll(keepRatio: boolean) {
     ratio = vp.scrollLeft / (vp.scrollWidth - vp.clientWidth || 1);
   }
   trackHTML.value = packColumns(units, scrollMetrics(), { trad: trad.value }).map(colHTML).join('');
+  paginatedKey = measuredKey();
   await nextTick();
   requestAnimationFrame(() => {
     if (!keepRatio) {
@@ -497,6 +516,12 @@ function onResize() {
   resizeTimer = setTimeout(() => rebuild(true), 180);
 }
 
+/* 就绪自愈回调（load/字体/延时/可见性/ResizeObserver 多信号复用，幂等） */
+function onSettle() {
+  repaint();
+  rebuildIfChanged();
+}
+
 onMounted(() => {
   const prefs = loadPrefs();
   mode.value = prefs.mode;
@@ -520,12 +545,32 @@ onMounted(() => {
   document.addEventListener('keydown', onKeydown);
   window.addEventListener('resize', onResize);
   viewportEl.value?.addEventListener('wheel', onViewportWheel, { passive: false });
+
+  /* 样式/字体/面板尺寸稳定后校正初次分页（多个信号兜底） */
+  if (document.readyState === 'complete') setTimeout(onSettle, 60);
+  else window.addEventListener('load', onSettle, { once: true });
+  document.fonts?.ready?.then(onSettle).catch(() => {});
+  setTimeout(onSettle, 400);
+  setTimeout(onSettle, 1200);
+  document.addEventListener('visibilitychange', onSettle);
+
+  /* 书叶尺寸一变即校正（不依赖 window resize 事件，覆盖加载间隙丢事件） */
+  if (typeof ResizeObserver !== 'undefined') {
+    ro = new ResizeObserver(() => onSettle());
+    if (bookEl.value) ro.observe(bookEl.value);
+    if (paperPadEl.value) ro.observe(paperPadEl.value);
+  }
 });
+
+let ro: ResizeObserver | null = null;
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown);
   window.removeEventListener('resize', onResize);
   viewportEl.value?.removeEventListener('wheel', onViewportWheel);
+  document.removeEventListener('visibilitychange', onSettle);
+  window.removeEventListener('load', onSettle);
+  ro?.disconnect();
   clearTimeout(resizeTimer);
 });
 
@@ -958,14 +1003,14 @@ watch(opening, syncHash);
 }
 
 /* —— 横排模式：句对 = 原文行 + 行内小字释义 —— */
-.reader-root.mode-h .page-flow {
+.reader-root.layout-book.mode-h .page-flow {
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
   padding: 12px 16px;
   border-right: none;
 }
-.reader-root.mode-h .pair {
+.reader-root.layout-book.mode-h .pair {
   flex: none;
   flex-direction: column;
   align-items: stretch;
@@ -978,7 +1023,7 @@ watch(opening, syncHash);
   min-width: 0;
   height: auto;
 }
-.reader-root.mode-h .col {
+.reader-root.layout-book.mode-h .col {
   border: none;
   box-shadow: none;
   background: none;
@@ -993,16 +1038,16 @@ watch(opening, syncHash);
   padding: 4px 0;
   gap: 0;
 }
-.reader-root.mode-h .ch {
+.reader-root.layout-book.mode-h .ch {
   display: inline-flex;
   border: none;
   width: 1em;
   height: 1em;
   font-size: var(--orig-size);
 }
-.reader-root.mode-h .pair.is-gloss { display: none; }
-.reader-root.mode-h .jz-col { display: none; }
-.reader-root.mode-h .ch .seg-dot { top: 0; left: -0.15em; transform: none; }
+.reader-root.layout-book.mode-h .pair.is-gloss { display: none; }
+.reader-root.layout-book.mode-h .jz-col { display: none; }
+.reader-root.layout-book.mode-h .ch .seg-dot { top: 0; left: -0.15em; transform: none; }
 
 /* —— 3D 翻页 —— */
 .flip-layer {
