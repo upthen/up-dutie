@@ -1,0 +1,24 @@
+---
+// T1 临时占位：证明内容管线贯通；T2 将以 v2 设计稿目录页替换本文件。
+import { getCollection } from 'astro:content';
+
+const entries = (await getCollection('steles')).sort((a, b) => a.data.listOrder - b.data.listOrder);
+---
+
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>讀帖</title>
+  </head>
+  <body>
+    <h1>讀帖 · 碑帖目錄（管线占位页）</h1>
+    <ul>
+      {entries.map((e) => (
+        <li>
+          {e.data.title}（{e.data.dynasty} · {e.data.script} · {e.data.status}）
+        </li>
+      ))}
+    </ul>
+  </body>
+</html>
