@@ -1,0 +1,135 @@
+---
+import { getCollection } from 'astro:content';
+import '../../styles/global.css';
+
+/* 跋页（designs/v2/colophon.html 定稿移植）：校记 + 出处按语 + 朱字「终」。 */
+export async function getStaticPaths() {
+  const published = await getCollection('steles', (e) => e.data.status === 'published');
+  return published.map((e) => ({ params: { id: e.data.id }, props: { entry: e.data } }));
+}
+
+const { entry } = Astro.props;
+const colophon = (entry.colophon ?? '').replace(/^校記：/, '');
+---
+
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{entry.title} · 跋</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="seal double" href="/">讀帖</a>
+      <span class="meta">{entry.title} · 跋 · 校記</span>
+      <div class="tools">
+        <a class="tool-btn" href={`/${entry.id}/read`}>閱讀</a>
+        <a class="tool-btn" href={`/${entry.id}/`}>扉</a>
+        <a class="tool-btn" href="/">目錄</a>
+      </div>
+    </header>
+
+    <div class="stage">
+      <article class="book frame">
+        <div class="head">校　記</div>
+        <div class="jiaokan">
+          <h2>用字與異文</h2>
+          <p>{colophon}</p>
+          {entry.source && <p class="note">{entry.source}</p>}
+        </div>
+        <div class="zhong" title="終">終</div>
+        <div class="nav-back">
+          <a href={`/${entry.id}/read`}>← 返回閱讀</a>
+          &nbsp;·&nbsp;
+          <a href="/">目錄</a>
+        </div>
+      </article>
+    </div>
+  </body>
+</html>
+
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 24px 24px;
+    min-height: 0;
+    background:
+      radial-gradient(ellipse at 50% 40%, #3A3A3A 0%, transparent 55%),
+      linear-gradient(180deg, var(--env-mid) 0%, var(--env-floor) 100%);
+  }
+  .book {
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(ellipse at 18% 22%, rgba(70, 50, 30, 0.04) 0%, transparent 42%),
+      radial-gradient(ellipse at 78% 68%, rgba(50, 40, 25, 0.03) 0%, transparent 48%);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    width: min(680px, 66vw);
+    height: min(760px, 80vh);
+    min-height: 520px;
+    padding: 52px 56px 48px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .head {
+    font-family: var(--kaiti);
+    font-size: 22px;
+    letter-spacing: 0.4em;
+    color: var(--zhu);
+    margin-bottom: 28px;
+  }
+  .jiaokan {
+    flex: 1;
+    font-family: var(--songti);
+    font-size: 15px;
+    line-height: 2.05;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    overflow-y: auto;
+  }
+  .jiaokan h2 {
+    font-family: var(--kaiti);
+    font-size: 17px;
+    letter-spacing: 0.28em;
+    font-weight: 500;
+    margin: 0 0 14px;
+  }
+  .jiaokan p { margin-bottom: 1.1em; }
+  .jiaokan .note {
+    color: var(--gloss);
+    font-size: 13.5px;
+    line-height: 1.95;
+  }
+  .zhong {
+    margin-top: 36px;
+    text-align: center;
+    font-family: var(--kaiti);
+    font-size: 42px;
+    color: var(--zhu);
+    letter-spacing: 0.5em;
+    line-height: 1;
+  }
+  .nav-back {
+    margin-top: 28px;
+    text-align: center;
+    writing-mode: horizontal-tb;
+  }
+  .nav-back a {
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    border-bottom: 1px solid transparent;
+  }
+  .nav-back a:hover { color: var(--zhu); border-bottom-color: rgba(156, 42, 32, 0.4); }
+  @media (max-width: 720px) {
+    .book { width: 92vw; height: auto; min-height: 70vh; padding: 36px 28px; }
+  }
+</style>
