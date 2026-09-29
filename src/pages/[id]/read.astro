@@ -1,0 +1,39 @@
+---
+import { getCollection } from 'astro:content';
+import ReaderIsland from '../../components/ReaderIsland.vue';
+import '../../styles/global.css';
+
+/* 阅读页（核心）：仅阅读器为 Vue island（spec 实现决策 1），
+   输入 = 条目全量句对数据（实现决策 5）。 */
+export async function getStaticPaths() {
+  const published = await getCollection('steles', (e) => e.data.status === 'published');
+  return published.map((e) => ({
+    params: { id: e.data.id },
+    props: {
+      entry: {
+        id: e.data.id,
+        title: e.data.title,
+        sections: e.data.sections ?? [],
+        units: e.data.units ?? [],
+      },
+    },
+  }));
+}
+
+const { entry } = Astro.props;
+---
+
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{entry.title} · 閱讀</title>
+  </head>
+  <body>
+    <ReaderIsland client:load entry={entry} />
+  </body>
+</html>
+
+<style>
+  html, body { height: 100%; overflow: hidden; }
+</style>
