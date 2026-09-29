@@ -1,6 +1,7 @@
 <!-- 阅读页 island（designs/v2/read.html 定稿移植）：
-     线装对开 + 版心书口 + 字级装箱入界格 + 槽位补格 + 四种翻页（含 3D 翻页动效）
-     + 汉字页码「开/叶」双计 + #pN 深链 + 繁简/竖横/字号切换 + 段跳转。
+     线装对开（版心书口 + 3D 翻页）｜卷轴（裱绢手卷）顶栏切换（?mode= 优先，localStorage 记忆）；
+     字级装箱入界格 + 槽位补格 + 四种翻页 + 汉字页码「开/叶」双计 + #pN 深链
+     + 繁简/竖横/字号切换 + 段跳转。
      装箱全部走 src/lib/pagination.ts 纯函数引擎，island 只负责度量与渲染。
      列内容以 v-html 生成：数据来自入库校验后的自家内容（受信），并供翻页动画面页复用同一渲染。 -->
 <script setup lang="ts">
@@ -40,9 +41,15 @@ const SIZE = {
   colRatio: 68 / 42,
 };
 const FLIP_MS = 850;
+const LS = {
+  mode: 'dutie-reader-mode',
+  trad: 'dutie-reader-trad',
+  size: 'dutie-reader-origSize',
+};
 
 const units = props.entry.units;
 
+const mode = ref<'book' | 'scroll'>('book');
 const trad = ref(true);
 const vertical = ref(true);
 const origSize = ref(SIZE.origDefault);
@@ -50,6 +57,7 @@ const leaves = ref<Leaf[]>([[]]);
 const openings = ref<Opening[]>([{ right: 0, left: null }]);
 const opening = ref(0);
 const animating = ref(false);
+const trackHTML = ref('');
 
 /** 3D 翻页瞬时态：front=翻动叶正面（当前），back=背面（下一开的对应叶） */
 const flip = ref<null | { delta: number; front: number | null; back: number | null }>(null);
@@ -61,6 +69,8 @@ const shadeFwdEl = ref<HTMLElement | null>(null);
 const shadeBakEl = ref<HTMLElement | null>(null);
 const leafLeftEl = ref<HTMLElement | null>(null);
 const leafRightEl = ref<HTMLElement | null>(null);
+const viewportEl = ref<HTMLElement | null>(null);
+const paperPadEl = ref<HTMLElement | null>(null);
 
 const colW = () => Math.round(origSize.value * SIZE.colRatio);
 const glossSize = () => Math.max(SIZE.glossMin, Math.round(origSize.value * SIZE.glossRatio));
@@ -71,6 +81,9 @@ const hasPrev = computed(() => opening.value > 0);
 const hasNext = computed(() => opening.value < openings.value.length - 1);
 const activeSeg = computed(() => leafFirstSeg(leaves.value[cur.value.right]));
 const titleShort = computed(() => props.entry.title.slice(-3));
+const topMeta = computed(() =>
+  mode.value === 'book' ? `${props.entry.title} · 刻本夾注 · 往右翻` : `${props.entry.title} · 中古卷軸`,
+);
 
 const pageLabel = computed(() => {
   const total = openings.value.length;
@@ -90,6 +103,44 @@ const banxinSeg = computed(() => {
   const seg = activeSeg.value;
   return seg != null ? `段${toCN(seg)}` : '　';
 });
+
+/* —— 偏好记忆：URL ?mode= 优先，其次 localStorage —— */
+function loadPrefs(): { mode: 'book' | 'scroll'; trad: boolean; origSize: number } {
+  const q = new URLSearchParams(location.search);
+  let m = q.get('mode');
+  if (m !== 'book' && m !== 'scroll') {
+    try {
+      m = localStorage.getItem(LS.mode) ?? undefined;
+    } catch {
+      m = undefined;
+    }
+  }
+  if (m !== 'book' && m !== 'scroll') m = 'book';
+  let t = true;
+  try {
+    if (localStorage.getItem(LS.trad) === '0') t = false;
+  } catch {
+    /* 隐私模式等场景静默降级 */
+  }
+  let s = SIZE.origDefault;
+  try {
+    const v = parseInt(localStorage.getItem(LS.size) ?? '', 10);
+    if (v >= SIZE.origMin && v <= SIZE.origMax) s = v;
+  } catch {
+    /* 同上 */
+  }
+  return { mode: m, trad: t, origSize: s };
+}
+
+function savePrefs() {
+  try {
+    localStorage.setItem(LS.mode, mode.value);
+    localStorage.setItem(LS.trad, trad.value ? '1' : '0');
+    localStorage.setItem(LS.size, String(origSize.value));
+  } catch {
+    /* 静默降级 */
+  }
+}
 
 function applySizes() {
   const root = document.documentElement;
@@ -120,6 +171,27 @@ function currentMetrics(): Metrics {
   };
 }
 
+/** 卷轴纸心可用列高（纸心上下天地头） */
+function scrollMetrics(): Metrics {
+  const pad = paperPadEl.value;
+  let colH = 560;
+  if (pad) {
+    const cs = getComputedStyle(pad);
+    const inner = pad.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+    colH = Math.max(160, Math.floor(inner - 56));
+  }
+  return {
+    colH,
+    leafW: Number.POSITIVE_INFINITY,
+    origSize: origSize.value,
+    colW: colW(),
+    glossSize: glossSize(),
+    glossColW: Math.round(glossSize() * 1.55),
+    glossStep: glossStep(),
+    glossPad: 24,
+  };
+}
+
 /** 重分页；keepSeg 给定时定位到该段首句所在开（保持阅读位置） */
 function repaginate(keepSeg?: number | null) {
   const m = currentMetrics();
@@ -139,7 +211,7 @@ function repaginate(keepSeg?: number | null) {
   leaves.value = next;
 }
 
-/* —— 界行渲染（书叶与翻页面页共用） —— */
+/* —— 界行渲染（书叶、卷轴、翻页面页共用） —— */
 function colHTML(col: Column): string {
   const segAttr = col.seg != null ? ` data-seg="${col.seg}"` : '';
   if (col.kind === 'gloss') {
@@ -190,6 +262,60 @@ function repaint() {
   nextTick(() => requestAnimationFrame(() => syncColHeights()));
 }
 
+/* —— 卷轴 —— */
+async function paintScroll(keepRatio: boolean) {
+  const vp = viewportEl.value;
+  if (!vp) return;
+  let ratio = 0;
+  if (keepRatio && vp.scrollWidth > vp.clientWidth) {
+    ratio = vp.scrollLeft / (vp.scrollWidth - vp.clientWidth || 1);
+  }
+  trackHTML.value = packColumns(units, scrollMetrics(), { trad: trad.value }).map(colHTML).join('');
+  await nextTick();
+  requestAnimationFrame(() => {
+    if (!keepRatio) {
+      vp.scrollLeft = 0;
+    } else {
+      const max = vp.scrollWidth - vp.clientWidth;
+      if (max > 0) vp.scrollLeft = ratio * max;
+    }
+  });
+}
+
+function rollBy(dx: number) {
+  viewportEl.value?.scrollBy({ left: dx, behavior: 'smooth' });
+}
+
+function onViewportWheel(e: WheelEvent) {
+  if (mode.value !== 'scroll') return;
+  if (Math.abs(e.deltaY) >= Math.abs(e.deltaX) && Math.abs(e.deltaY) > 2) {
+    e.preventDefault();
+    /* rtl 视口 scrollLeft 为负向（0=右端起首），滚轮向下=向后读 */
+    if (viewportEl.value) viewportEl.value.scrollLeft -= e.deltaY;
+  }
+}
+
+let dragging = false;
+let dragStartX = 0;
+let dragStartScroll = 0;
+function onDragDown(e: PointerEvent) {
+  if (mode.value !== 'scroll' || e.button !== 0) return;
+  dragging = true;
+  dragStartX = e.clientX;
+  dragStartScroll = viewportEl.value?.scrollLeft ?? 0;
+  viewportEl.value?.classList.add('is-dragging');
+  viewportEl.value?.setPointerCapture(e.pointerId);
+}
+function onDragMove(e: PointerEvent) {
+  if (!dragging || !viewportEl.value) return;
+  /* rtl 视口：向左拖曳露出后方内容 = scrollLeft 变负 */
+  viewportEl.value.scrollLeft = dragStartScroll - (dragStartX - e.clientX);
+}
+function onDragEnd() {
+  dragging = false;
+  viewportEl.value?.classList.remove('is-dragging');
+}
+
 /* —— 3D 翻页（窄屏/横排降级为直接切换） —— */
 async function runFlip(delta: number, next: number) {
   const curOp = openings.value[opening.value];
@@ -235,7 +361,7 @@ async function runFlip(delta: number, next: number) {
 }
 
 async function go(delta: number) {
-  if (animating.value) return;
+  if (animating.value || mode.value !== 'book') return;
   const next = opening.value + delta;
   if (next < 0 || next >= openings.value.length) return;
   const narrow = window.matchMedia('(max-width: 960px)').matches;
@@ -258,11 +384,37 @@ function keepSegOfCurrent(): number | null {
 
 function rebuild(keepSeg = true) {
   applySizes();
-  repaginate(keepSeg ? keepSegOfCurrent() : null);
-  repaint();
+  savePrefs();
+  if (mode.value === 'book') {
+    repaginate(keepSeg ? keepSegOfCurrent() : null);
+    repaint();
+  } else {
+    paintScroll(true);
+  }
 }
 
 /* —— 控件 —— */
+async function setMode(m: 'book' | 'scroll', pushUrl = true) {
+  if (mode.value === m) return;
+  mode.value = m;
+  savePrefs();
+  if (pushUrl) {
+    const url = new URL(location.href);
+    url.searchParams.set('mode', m);
+    history.replaceState(null, '', url);
+  }
+  applySizes();
+  /* nextTick（微任务）等 Vue 应用 mode 类后再度量：
+     不用 requestAnimationFrame——后台标签页会被节流，切换回来量不到 */
+  await nextTick();
+  if (m === 'book') {
+    repaginate(keepSegOfCurrent());
+    repaint();
+  } else {
+    paintScroll(false);
+  }
+}
+
 function setTrad(v: boolean) {
   if (trad.value === v) return;
   trad.value = v;
@@ -308,18 +460,30 @@ function syncHash() {
 
 /* —— 键盘 / 滚轮 —— */
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'ArrowRight') {
-    e.preventDefault();
-    go(1);
-  }
-  if (e.key === 'ArrowLeft') {
-    e.preventDefault();
-    go(-1);
+  if (mode.value === 'book') {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      go(1);
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      go(-1);
+    }
+  } else {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      rollBy(-220);
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      rollBy(220);
+    }
   }
 }
 
 let wheelLock = 0;
-function onWheel(e: WheelEvent) {
+function onBookWheel(e: WheelEvent) {
+  if (mode.value !== 'book') return;
   const now = Date.now();
   if (now - wheelLock < 500) return;
   if (Math.abs(e.deltaY) < 20 && Math.abs(e.deltaX) < 20) return;
@@ -334,18 +498,34 @@ function onResize() {
 }
 
 onMounted(() => {
+  const prefs = loadPrefs();
+  mode.value = prefs.mode;
+  trad.value = prefs.trad;
+  origSize.value = prefs.origSize;
   applySizes();
+  savePrefs();
+  const url = new URL(location.href);
+  url.searchParams.set('mode', mode.value);
+  history.replaceState(null, '', url);
+
   const p = parseHash();
-  repaginate(null);
-  if (p != null) opening.value = Math.min(Math.max(p - 1, 0), openings.value.length - 1);
-  repaint();
+  if (mode.value === 'book') {
+    repaginate(null);
+    if (p != null) opening.value = Math.min(Math.max(p - 1, 0), openings.value.length - 1);
+    repaint();
+  } else {
+    paintScroll(false);
+  }
+
   document.addEventListener('keydown', onKeydown);
   window.addEventListener('resize', onResize);
+  viewportEl.value?.addEventListener('wheel', onViewportWheel, { passive: false });
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown);
   window.removeEventListener('resize', onResize);
+  viewportEl.value?.removeEventListener('wheel', onViewportWheel);
   clearTimeout(resizeTimer);
 });
 
@@ -353,10 +533,14 @@ watch(opening, syncHash);
 </script>
 
 <template>
-  <div :class="['reader-root', { 'mode-h': !vertical }]">
+  <div :class="['reader-root', mode === 'book' ? 'layout-book' : 'layout-scroll', { 'mode-h': !vertical }]">
     <header class="topbar">
       <a class="seal double" href="/">讀帖</a>
-      <span class="meta">{{ entry.title }} · 刻本夾注 · 往右翻</span>
+      <span class="meta">{{ topMeta }}</span>
+      <div class="mode-switch" role="group" aria-label="版式">
+        <button type="button" :class="{ active: mode === 'book' }" title="線裝對開" @click="setMode('book')">線裝</button>
+        <button type="button" :class="{ active: mode === 'scroll' }" title="中古卷軸" @click="setMode('scroll')">卷軸</button>
+      </div>
       <nav class="seg" aria-label="段落跳轉">
         <button
           v-for="s in entry.sections"
@@ -372,8 +556,10 @@ watch(opening, syncHash);
       <div class="tools">
         <button type="button" :class="{ active: trad }" title="繁體原文" @click="setTrad(true)">繁</button>
         <button type="button" :class="{ active: !trad }" title="簡體原文" @click="setTrad(false)">簡</button>
-        <button type="button" :class="{ active: vertical }" title="豎排" @click="setVertical(true)">豎</button>
-        <button type="button" :class="{ active: !vertical }" title="橫排" @click="setVertical(false)">橫</button>
+        <span class="vert-horz">
+          <button type="button" :class="{ active: vertical }" title="豎排" @click="setVertical(true)">豎</button>
+          <button type="button" :class="{ active: !vertical }" title="橫排" @click="setVertical(false)">橫</button>
+        </span>
         <button type="button" title="縮小" @click="stepSize(-2)">A－</button>
         <button type="button" title="放大" @click="stepSize(2)">A＋</button>
         <a class="tool-btn" :href="`/${entry.id}/`">扉</a>
@@ -382,7 +568,7 @@ watch(opening, syncHash);
     </header>
 
     <div class="stage stage-book">
-      <div ref="bookEl" class="book" @wheel.passive="onWheel">
+      <div ref="bookEl" class="book" @wheel.passive="onBookWheel">
         <div class="opening">
           <div ref="leafLeftEl" class="leaf leaf-left">
             <div class="leaf-pad">
@@ -435,16 +621,47 @@ watch(opening, syncHash);
       </div>
     </div>
 
-    <footer class="pager">
+    <div class="stage stage-scroll">
+      <div class="scroll-stage">
+        <div
+          ref="viewportEl"
+          class="viewport"
+          tabindex="0"
+          aria-label="卷軸紙心，橫向捲動閱讀"
+          @pointerdown="onDragDown"
+          @pointermove="onDragMove"
+          @pointerup="onDragEnd"
+          @pointercancel="onDragEnd"
+        >
+          <div class="mounting">
+            <div class="scroll-paper">
+              <div class="watermark" aria-hidden="true"></div>
+              <div class="zhu-seal" aria-hidden="true">御覽</div>
+              <div ref="paperPadEl" class="paper-pad">
+                <div class="track" v-html="trackHTML"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="pager pager-book">
       <button type="button" :disabled="!hasPrev" @click="go(-1)">前開</button>
       <span class="num">{{ pageLabel }}</span>
       <button type="button" :disabled="!hasNext" @click="go(1)">後開</button>
     </footer>
+
+    <div class="scroll-bar">
+      <button type="button" title="向左捲（讀後方）" @click="rollBy(-280)">← 捲左</button>
+      <span class="hint">滾輪／拖曳／←→ · 右起豎讀</span>
+      <button type="button" title="向右捲（回起首）" @click="rollBy(280)">捲右 →</button>
+    </div>
   </div>
 </template>
 
 <style>
-/* 读帖 · 阅读页（designs/v2/read.html 线装部分移植；本组件仅在阅读页加载，非 scoped 以覆盖全局态） */
+/* 读帖 · 阅读页（designs/v2/read.html 移植；本组件仅在阅读页加载，非 scoped 以覆盖全局态） */
 .reader-root {
   height: 100vh;
   display: flex;
@@ -466,6 +683,41 @@ watch(opening, syncHash);
     linear-gradient(180deg, var(--env-mid) 0%, var(--env-floor) 100%);
 }
 .reader-root .pager { flex-shrink: 0; }
+
+/* 版式切换：線裝｜卷軸 */
+.mode-switch {
+  display: flex;
+  gap: 2px;
+  margin-right: 8px;
+  padding-right: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+.mode-switch button {
+  min-width: 36px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: #C8C8C8;
+  border: 1px solid transparent;
+}
+.mode-switch button:hover {
+  color: #F0F0F0;
+  border-color: rgba(180, 80, 70, 0.5);
+}
+.mode-switch button.active {
+  color: #D08078;
+  border-color: #C45A4A;
+}
+
+/* 两模式互斥显隐 */
+.reader-root.layout-scroll .stage-book,
+.reader-root.layout-book .stage-scroll { display: none !important; }
+.reader-root.layout-scroll .pager-book { display: none !important; }
+.reader-root.layout-book .scroll-bar { display: none !important; }
+.reader-root.layout-scroll .seg,
+.reader-root.layout-scroll .vert-horz { display: none !important; }
 
 /* ========== 线装 ========== */
 .book {
@@ -596,7 +848,7 @@ watch(opening, syncHash);
 }
 .banxin .ye-code .sep { opacity: 0.45; margin: 0 0.12em; }
 
-/* 界行 / 字格 */
+/* 界行 / 字格（线装＋卷轴共用） */
 .page-flow {
   position: relative;
   z-index: 1;
@@ -903,5 +1155,185 @@ watch(opening, syncHash);
   }
   .banxin-inner { writing-mode: horizontal-tb; flex-direction: row; height: auto; gap: 10px; }
   .flip-layer { visibility: hidden !important; opacity: 0 !important; }
+}
+
+/* ========== 卷轴 ========== */
+.stage-scroll {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: 18px 0 12px;
+}
+.scroll-stage {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: min(760px, calc(100vh - 44px - 72px));
+  width: 90vw;
+  max-width: 90vw;
+  margin: 0 auto;
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.45));
+}
+.viewport {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  cursor: grab;
+  direction: rtl;
+  border-radius: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(60, 60, 60, 0.55) transparent;
+}
+.viewport::-webkit-scrollbar { height: 8px; }
+.viewport::-webkit-scrollbar-thumb {
+  background: rgba(60, 60, 60, 0.5);
+  border-radius: 4px;
+}
+.viewport.is-dragging { cursor: grabbing; scroll-behavior: auto; }
+.mounting {
+  display: inline-flex;
+  direction: ltr;
+  height: 100%;
+  padding: 20px 28px;
+  background-color: #A8B0B8;
+  background-image:
+    radial-gradient(ellipse at 20% 30%, rgba(255, 255, 255, 0.18) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 60%, rgba(40, 50, 60, 0.12) 0%, transparent 45%),
+    repeating-linear-gradient(45deg, transparent 0 10px, rgba(255, 255, 255, 0.04) 10px 11px, transparent 11px 22px),
+    repeating-linear-gradient(-45deg, transparent 0 14px, rgba(30, 40, 50, 0.05) 14px 15px),
+    linear-gradient(180deg, #B8C0C8 0%, #A8B0B8 40%, #8A949E 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 0 40px rgba(40, 50, 60, 0.15);
+  min-width: 100%;
+}
+.scroll-paper {
+  position: relative;
+  height: 100%;
+  min-height: 100%;
+  align-self: stretch;
+  background:
+    radial-gradient(ellipse at 18% 22%, rgba(70, 50, 30, 0.04) 0%, transparent 42%),
+    radial-gradient(ellipse at 78% 68%, rgba(50, 40, 25, 0.035) 0%, transparent 48%),
+    linear-gradient(180deg, #F7F1E2 0%, var(--paper) 35%, #E8DCC0 100%);
+  box-shadow:
+    inset 0 0 60px rgba(180, 150, 100, 0.12),
+    0 0 0 1px rgba(80, 60, 40, 0.18);
+  display: flex;
+  flex-direction: column;
+  min-width: max-content;
+}
+.scroll-paper::before,
+.scroll-paper::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1.5px solid rgba(50, 38, 26, 0.55);
+  z-index: 3;
+  pointer-events: none;
+}
+.scroll-paper::before { top: 18px; }
+.scroll-paper::after { bottom: 18px; }
+.watermark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(280px, 40vw);
+  height: min(280px, 40vw);
+  border-radius: 50%;
+  border: 1.5px solid rgba(120, 90, 50, 0.07);
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(circle, transparent 42%, rgba(120, 90, 50, 0.05) 48%, transparent 55%);
+}
+.watermark::before {
+  content: "壽";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--kaiti);
+  font-size: 7em;
+  color: rgba(120, 90, 50, 0.055);
+  line-height: 1;
+}
+.zhu-seal {
+  position: absolute;
+  top: 26px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--zhu);
+  color: var(--zhu);
+  font-family: var(--kaiti);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  line-height: 1.15;
+  opacity: 0.85;
+  z-index: 4;
+  background: rgba(244, 238, 220, 0.35);
+  pointer-events: none;
+}
+.paper-pad {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  padding: 12px 16px 22px;
+  display: flex;
+  align-items: stretch;
+}
+.track {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: stretch;
+  height: 100%;
+  min-width: max-content;
+  border-right: 1px solid var(--grid);
+}
+.scroll-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  height: 40px;
+  margin-top: 8px;
+  color: rgba(160, 160, 160, 0.85);
+  font-family: var(--songti);
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  flex-shrink: 0;
+}
+.scroll-bar button {
+  color: #C8C8C8;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  padding: 4px 14px;
+  border: 1px solid transparent;
+}
+.scroll-bar button:hover {
+  color: #D08078;
+  border-color: rgba(196, 90, 74, 0.4);
+}
+.scroll-bar .hint {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: rgba(140, 140, 140, 0.75);
+}
+
+@media (max-width: 720px) {
+  .stage-scroll { padding: 10px 8px 6px; }
+  .scroll-stage { width: 96vw; max-width: 96vw; }
+  .mounting { padding: 14px 14px; }
 }
 </style>
