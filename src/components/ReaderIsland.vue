@@ -1,6 +1,8 @@
 <!-- 阅读页 island（designs/v2/read.html 定稿移植）：
-     T4 范围 = 线装竖排核心：对开/版心/字级装箱入界格/槽位补格/四种翻页/汉字页码/#pN/繁简切换。
-     装箱全部走 src/lib/pagination.ts 纯函数引擎，island 只负责度量与渲染。 -->
+     线装对开 + 版心书口 + 字级装箱入界格 + 槽位补格 + 四种翻页（含 3D 翻页动效）
+     + 汉字页码「开/叶」双计 + #pN 深链 + 繁简/竖横/字号切换 + 段跳转。
+     装箱全部走 src/lib/pagination.ts 纯函数引擎，island 只负责度量与渲染。
+     列内容以 v-html 生成：数据来自入库校验后的自家内容（受信），并供翻页动画面页复用同一渲染。 -->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
@@ -37,6 +39,7 @@ const SIZE = {
   glossRatio: 0.42,
   colRatio: 68 / 42,
 };
+const FLIP_MS = 850;
 
 const units = props.entry.units;
 
@@ -46,19 +49,28 @@ const origSize = ref(SIZE.origDefault);
 const leaves = ref<Leaf[]>([[]]);
 const openings = ref<Opening[]>([{ right: 0, left: null }]);
 const opening = ref(0);
+const animating = ref(false);
+
+/** 3D 翻页瞬时态：front=翻动叶正面（当前），back=背面（下一开的对应叶） */
+const flip = ref<null | { delta: number; front: number | null; back: number | null }>(null);
 
 const bookEl = ref<HTMLElement | null>(null);
 const rightFrame = ref<HTMLElement | null>(null);
+const flipSheetEl = ref<HTMLElement | null>(null);
+const shadeFwdEl = ref<HTMLElement | null>(null);
+const shadeBakEl = ref<HTMLElement | null>(null);
+const leafLeftEl = ref<HTMLElement | null>(null);
+const leafRightEl = ref<HTMLElement | null>(null);
 
 const colW = () => Math.round(origSize.value * SIZE.colRatio);
 const glossSize = () => Math.max(SIZE.glossMin, Math.round(origSize.value * SIZE.glossRatio));
 const glossStep = () => glossSize() * 1.55;
 
 const cur = computed(() => openings.value[opening.value] ?? { right: 0, left: null });
-const rightCols = computed<Leaf>(() => leaves.value[cur.value.right] ?? []);
-const leftCols = computed<Leaf>(() => (cur.value.left != null ? leaves.value[cur.value.left] : undefined) ?? []);
 const hasPrev = computed(() => opening.value > 0);
 const hasNext = computed(() => opening.value < openings.value.length - 1);
+const activeSeg = computed(() => leafFirstSeg(leaves.value[cur.value.right]));
+const titleShort = computed(() => props.entry.title.slice(-3));
 
 const pageLabel = computed(() => {
   const total = openings.value.length;
@@ -71,15 +83,13 @@ const pageLabel = computed(() => {
 const banxinYe = computed(() => {
   const r = cur.value.right + 1;
   const l = cur.value.left != null ? cur.value.left + 1 : null;
-  return l != null ? { r: toCN(r), l: toCN(l) } : { r: toCN(r), l: null };
+  return { r: toCN(r), l: l != null ? toCN(l) : null };
 });
 
 const banxinSeg = computed(() => {
-  const seg = leafFirstSeg(leaves.value[cur.value.right]);
+  const seg = activeSeg.value;
   return seg != null ? `段${toCN(seg)}` : '　';
 });
-
-const titleShort = computed(() => props.entry.title.slice(-3));
 
 function applySizes() {
   const root = document.documentElement;
@@ -113,10 +123,9 @@ function currentMetrics(): Metrics {
 /** 重分页；keepSeg 给定时定位到该段首句所在开（保持阅读位置） */
 function repaginate(keepSeg?: number | null) {
   const m = currentMetrics();
-  const next =
-    vertical.value
-      ? packLeaves(packColumns(units, m, { trad: trad.value }), m)
-      : packRows(units, m, { trad: trad.value });
+  const next = vertical.value
+    ? packLeaves(packColumns(units, m, { trad: trad.value }), m)
+    : packRows(units, m, { trad: trad.value });
   openings.value = pairOpenings(next);
   if (keepSeg != null) {
     const li = findLeafOfSeg(next, keepSeg);
@@ -130,19 +139,41 @@ function repaginate(keepSeg?: number | null) {
   leaves.value = next;
 }
 
-/** 界格通栏、字不满格留白：空余栏位以隐藏槽位补齐 */
-function slotCount(leaf: Leaf): number {
-  if (!vertical.value) return 0;
-  const m = currentMetrics();
-  const usedW = leaf.reduce((s, c) => s + columnWidth(c, m), 0);
-  const slotW = colW() + 1;
-  let n = 0;
-  while (usedW + slotW * (n + 1) <= m.leafW + 0.5) n++;
-  return n;
+/* —— 界行渲染（书叶与翻页面页共用） —— */
+function colHTML(col: Column): string {
+  const segAttr = col.seg != null ? ` data-seg="${col.seg}"` : '';
+  if (col.kind === 'gloss') {
+    const h = Math.ceil([...col.text].length * glossStep());
+    return `<article class="pair is-gloss"${segAttr}><div class="col"><span class="jz-col" style="height:${h}px">${col.text}</span></div></article>`;
+  }
+  const chars = col.units
+    .map((u) => {
+      const mark = u.segMark ? '<i class="seg-dot" aria-hidden="true"></i>' : '';
+      return `<span class="ch${u.punct ? ' punct' : ''}">${mark}${u.ch}</span>`;
+    })
+    .join('');
+  const gloss = col.kind === 'row' ? `<span class="jz-inline">${col.gloss}</span>` : '';
+  return `<article class="pair"${segAttr}><div class="col">${chars}${gloss}</div></article>`;
 }
 
-function glossHeight(col: Column): number {
-  return col.kind === 'gloss' ? Math.ceil([...col.text].length * glossStep()) : 0;
+/** 界格通栏、字不满格留白：空余栏位以隐藏槽位补齐 */
+function leafHTML(leafIdx: number | null): string {
+  const leaf = leafIdx == null ? [] : leaves.value[leafIdx] ?? [];
+  const m = currentMetrics();
+  let html = '';
+  let usedW = 0;
+  for (const col of leaf) {
+    html += colHTML(col);
+    usedW += columnWidth(col, m);
+  }
+  if (vertical.value) {
+    const slotW = colW() + 1;
+    while (usedW + slotW <= m.leafW + 0.5) {
+      html += '<article class="pair slot" aria-hidden="true"><div class="col"></div></article>';
+      usedW += slotW;
+    }
+  }
+  return html;
 }
 
 function syncColHeights() {
@@ -159,11 +190,66 @@ function repaint() {
   nextTick(() => requestAnimationFrame(() => syncColHeights()));
 }
 
-function go(delta: number) {
+/* —— 3D 翻页（窄屏/横排降级为直接切换） —— */
+async function runFlip(delta: number, next: number) {
+  const curOp = openings.value[opening.value];
+  const nextOp = openings.value[next];
+  flip.value = {
+    delta,
+    front: delta > 0 ? curOp.left : curOp.right,
+    back: delta > 0 ? nextOp.right : nextOp.left,
+  };
+  await nextTick();
+  await new Promise<void>((resolve) => {
+    const sheet = flipSheetEl.value;
+    const shade = delta > 0 ? shadeFwdEl.value : shadeBakEl.value;
+    if (!sheet) {
+      flip.value = null;
+      resolve();
+      return;
+    }
+    shade?.classList.add('on');
+    if (delta > 0) leafLeftEl.value && (leafLeftEl.value.style.visibility = 'hidden');
+    else leafRightEl.value && (leafRightEl.value.style.visibility = 'hidden');
+    syncColHeights();
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      opening.value = next;
+      flip.value = null;
+      if (leafLeftEl.value) leafLeftEl.value.style.visibility = '';
+      if (leafRightEl.value) leafRightEl.value.style.visibility = '';
+      shade?.classList.remove('on');
+      repaint();
+      resolve();
+    };
+    const to = delta > 0 ? 'rotateY(165deg)' : 'rotateY(-165deg)';
+    const anim = sheet.animate(
+      [{ transform: 'rotateY(0deg)' }, { transform: to }],
+      { duration: FLIP_MS, easing: 'cubic-bezier(0.4, 0.05, 0.2, 1)', fill: 'forwards' },
+    );
+    anim.onfinish = done;
+    setTimeout(done, FLIP_MS + 120);
+  });
+}
+
+async function go(delta: number) {
+  if (animating.value) return;
   const next = opening.value + delta;
   if (next < 0 || next >= openings.value.length) return;
-  opening.value = next;
-  repaint();
+  const narrow = window.matchMedia('(max-width: 960px)').matches;
+  if (narrow || !vertical.value) {
+    opening.value = next;
+    repaint();
+    return;
+  }
+  animating.value = true;
+  try {
+    await runFlip(delta, next);
+  } finally {
+    animating.value = false;
+  }
 }
 
 function keepSegOfCurrent(): number | null {
@@ -174,6 +260,36 @@ function rebuild(keepSeg = true) {
   applySizes();
   repaginate(keepSeg ? keepSegOfCurrent() : null);
   repaint();
+}
+
+/* —— 控件 —— */
+function setTrad(v: boolean) {
+  if (trad.value === v) return;
+  trad.value = v;
+  rebuild(true);
+}
+
+function setVertical(v: boolean) {
+  if (vertical.value === v) return;
+  vertical.value = v;
+  rebuild(true);
+}
+
+function stepSize(d: number) {
+  const v = Math.min(SIZE.origMax, Math.max(SIZE.origMin, origSize.value + d));
+  if (v === origSize.value) return;
+  origSize.value = v;
+  rebuild(true);
+}
+
+function jumpToSeg(seg: number) {
+  const li = findLeafOfSeg(leaves.value, seg);
+  if (li < 0) return;
+  const oi = openings.value.findIndex((o) => o.right === li || o.left === li);
+  if (oi >= 0) {
+    opening.value = oi;
+    repaint();
+  }
 }
 
 /* —— #pN 深链 —— */
@@ -217,12 +333,6 @@ function onResize() {
   resizeTimer = setTimeout(() => rebuild(true), 180);
 }
 
-function setTrad(v: boolean) {
-  if (trad.value === v) return;
-  trad.value = v;
-  rebuild(true);
-}
-
 onMounted(() => {
   applySizes();
   const p = parseHash();
@@ -243,13 +353,29 @@ watch(opening, syncHash);
 </script>
 
 <template>
-  <div class="reader-root">
+  <div :class="['reader-root', { 'mode-h': !vertical }]">
     <header class="topbar">
       <a class="seal double" href="/">讀帖</a>
       <span class="meta">{{ entry.title }} · 刻本夾注 · 往右翻</span>
+      <nav class="seg" aria-label="段落跳轉">
+        <button
+          v-for="s in entry.sections"
+          :key="s.id"
+          type="button"
+          :class="{ active: activeSeg === s.id }"
+          :title="s.label"
+          @click="jumpToSeg(s.id)"
+        >
+          段{{ toCN(s.id) }}
+        </button>
+      </nav>
       <div class="tools">
         <button type="button" :class="{ active: trad }" title="繁體原文" @click="setTrad(true)">繁</button>
         <button type="button" :class="{ active: !trad }" title="簡體原文" @click="setTrad(false)">簡</button>
+        <button type="button" :class="{ active: vertical }" title="豎排" @click="setVertical(true)">豎</button>
+        <button type="button" :class="{ active: !vertical }" title="橫排" @click="setVertical(false)">橫</button>
+        <button type="button" title="縮小" @click="stepSize(-2)">A－</button>
+        <button type="button" title="放大" @click="stepSize(2)">A＋</button>
         <a class="tool-btn" :href="`/${entry.id}/`">扉</a>
         <a class="tool-btn" :href="`/${entry.id}/colophon`">跋</a>
       </div>
@@ -258,29 +384,10 @@ watch(opening, syncHash);
     <div class="stage stage-book">
       <div ref="bookEl" class="book" @wheel.passive="onWheel">
         <div class="opening">
-          <div class="leaf leaf-left">
+          <div ref="leafLeftEl" class="leaf leaf-left">
             <div class="leaf-pad">
               <div class="text-frame frame">
-                <div class="page-flow">
-                  <article
-                    v-for="(col, i) in leftCols"
-                    :key="i"
-                    :class="['pair', col.kind === 'gloss' ? 'is-gloss' : '']"
-                    :data-seg="col.seg"
-                  >
-                    <div class="col">
-                      <span v-if="col.kind === 'gloss'" class="jz-col" :style="{ height: glossHeight(col) + 'px' }">{{ col.text }}</span>
-                      <template v-else>
-                        <span v-for="(u, j) in col.units" :key="j" :class="['ch', u.punct ? 'punct' : '']">
-                          <i v-if="u.segMark" class="seg-dot" aria-hidden="true"></i>{{ u.ch }}
-                        </span>
-                      </template>
-                    </div>
-                  </article>
-                  <article v-for="s in slotCount(leftCols)" :key="'s' + s" class="pair slot" aria-hidden="true">
-                    <div class="col"></div>
-                  </article>
-                </div>
+                <div class="page-flow" v-html="leafHTML(cur.left)"></div>
               </div>
             </div>
           </div>
@@ -297,34 +404,32 @@ watch(opening, syncHash);
             </div>
           </aside>
 
-          <div class="leaf leaf-right">
+          <div ref="leafRightEl" class="leaf leaf-right">
             <div class="leaf-pad">
               <div ref="rightFrame" class="text-frame frame">
-                <div class="page-flow">
-                  <article
-                    v-for="(col, i) in rightCols"
-                    :key="i"
-                    :class="['pair', col.kind === 'gloss' ? 'is-gloss' : '']"
-                    :data-seg="col.seg"
-                  >
-                    <div class="col">
-                      <span v-if="col.kind === 'gloss'" class="jz-col" :style="{ height: glossHeight(col) + 'px' }">{{ col.text }}</span>
-                      <template v-else>
-                        <span v-for="(u, j) in col.units" :key="j" :class="['ch', u.punct ? 'punct' : '']">
-                          <i v-if="u.segMark" class="seg-dot" aria-hidden="true"></i>{{ u.ch }}
-                        </span>
-                      </template>
-                    </div>
-                  </article>
-                  <article v-for="s in slotCount(rightCols)" :key="'s' + s" class="pair slot" aria-hidden="true">
-                    <div class="col"></div>
-                  </article>
-                </div>
+                <div class="page-flow" v-html="leafHTML(cur.right)"></div>
               </div>
             </div>
           </div>
         </div>
 
+        <div ref="shadeFwdEl" class="flip-shade fwd"></div>
+        <div ref="shadeBakEl" class="flip-shade bak"></div>
+        <div v-if="flip" class="flip-layer active" aria-hidden="true">
+          <div
+            ref="flipSheetEl"
+            class="flip-sheet"
+            :class="flip.delta > 0 ? 'fwd' : 'bak'"
+            style="transform: rotateY(0deg)"
+          >
+            <div class="flip-face front frame">
+              <div class="leaf-pad"><div class="text-frame frame"><div class="page-flow" v-html="leafHTML(flip.front)"></div></div></div>
+            </div>
+            <div class="flip-face back frame">
+              <div class="leaf-pad"><div class="text-frame frame"><div class="page-flow" v-html="leafHTML(flip.back)"></div></div></div>
+            </div>
+          </div>
+        </div>
         <div v-show="hasPrev" class="corner left" title="前一開" @click="go(-1)"><span class="hint">← 前一開</span></div>
         <div v-show="hasNext" class="corner right" title="後一開" @click="go(1)"><span class="hint">後一開 →</span></div>
       </div>
@@ -339,7 +444,7 @@ watch(opening, syncHash);
 </template>
 
 <style>
-/* 读帖 · 阅读页（designs/v2/read.html 线装部分移植；本组件仅在阅读页加载，非 scoped 以覆盖 body 态） */
+/* 读帖 · 阅读页（designs/v2/read.html 线装部分移植；本组件仅在阅读页加载，非 scoped 以覆盖全局态） */
 .reader-root {
   height: 100vh;
   display: flex;
@@ -600,6 +705,139 @@ watch(opening, syncHash);
   letter-spacing: 0.04em;
 }
 
+/* —— 横排模式：句对 = 原文行 + 行内小字释义 —— */
+.reader-root.mode-h .page-flow {
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding: 12px 16px;
+  border-right: none;
+}
+.reader-root.mode-h .pair {
+  flex: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  border: none;
+  border-bottom: 1px solid rgba(122, 99, 58, 0.18);
+  padding-bottom: 10px;
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+}
+.reader-root.mode-h .col {
+  border: none;
+  box-shadow: none;
+  background: none;
+  max-height: none;
+  height: auto !important;
+  width: 100%;
+  min-width: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 4px 0;
+  gap: 0;
+}
+.reader-root.mode-h .ch {
+  display: inline-flex;
+  border: none;
+  width: 1em;
+  height: 1em;
+  font-size: var(--orig-size);
+}
+.reader-root.mode-h .pair.is-gloss { display: none; }
+.reader-root.mode-h .jz-col { display: none; }
+.reader-root.mode-h .ch .seg-dot { top: 0; left: -0.15em; transform: none; }
+
+/* —— 3D 翻页 —— */
+.flip-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+}
+.flip-layer.active { visibility: visible; opacity: 1; }
+.flip-sheet {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc((100% - 48px) / 2);
+  transform-style: preserve-3d;
+  transition: transform 0.85s cubic-bezier(0.4, 0.05, 0.2, 1);
+  will-change: transform;
+  z-index: 2;
+}
+.flip-sheet.fwd {
+  left: 0;
+  transform-origin: 100% 50%;
+  transform: rotateY(0deg) translateZ(0);
+}
+.flip-sheet.fwd.turn { transform: rotateY(165deg) translateZ(0); }
+.flip-sheet.bak {
+  right: 0;
+  transform-origin: 0% 50%;
+  transform: rotateY(0deg) translateZ(0);
+}
+.flip-sheet.bak.turn { transform: rotateY(-165deg) translateZ(0); }
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: var(--paper);
+  overflow: hidden;
+  box-shadow: 0 0 0 1.5px rgba(46, 36, 24, 0.45);
+}
+.flip-face.front {
+  box-shadow:
+    0 0 0 1.5px rgba(46, 36, 24, 0.45),
+    8px 0 24px rgba(46, 36, 24, 0.18);
+}
+.flip-sheet.fwd .flip-face.front {
+  box-shadow:
+    0 0 0 1.5px rgba(46, 36, 24, 0.5),
+    -12px 0 36px rgba(46, 36, 24, 0.28),
+    0 12px 40px rgba(46, 36, 24, 0.15);
+}
+.flip-sheet.bak .flip-face.front {
+  box-shadow:
+    0 0 0 1.5px rgba(46, 36, 24, 0.5),
+    12px 0 36px rgba(46, 36, 24, 0.28),
+    0 12px 40px rgba(46, 36, 24, 0.15);
+}
+.flip-face.back {
+  transform: rotateY(180deg);
+  box-shadow:
+    0 0 0 1.5px rgba(46, 36, 24, 0.45),
+    inset 0 0 40px rgba(46, 36, 24, 0.06);
+}
+.flip-face .leaf-pad { height: 100%; }
+.flip-face .text-frame { height: 100%; }
+.flip-shade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  z-index: 28;
+}
+.flip-shade.fwd {
+  left: 0;
+  background: linear-gradient(90deg, transparent, rgba(46, 36, 24, 0.2));
+}
+.flip-shade.bak {
+  right: 0;
+  background: linear-gradient(270deg, transparent, rgba(46, 36, 24, 0.2));
+}
+.flip-shade.on { opacity: 1; }
+
 /* 页角翻页提示 */
 .corner {
   position: absolute;
@@ -664,5 +902,6 @@ watch(opening, syncHash);
     border-bottom: 1px solid rgba(46, 36, 24, 0.35);
   }
   .banxin-inner { writing-mode: horizontal-tb; flex-direction: row; height: auto; gap: 10px; }
+  .flip-layer { visibility: hidden !important; opacity: 0 !important; }
 }
 </style>
