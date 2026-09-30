@@ -77,9 +77,22 @@ const glossSize = () => Math.max(SIZE.glossMin, Math.round(origSize.value * SIZE
 const glossStep = () => glossSize() * 1.55;
 
 const cur = computed(() => openings.value[opening.value] ?? { right: 0, left: null });
-const hasPrev = computed(() => opening.value > 0);
-const hasNext = computed(() => opening.value < openings.value.length - 1);
-const activeSeg = computed(() => leafFirstSeg(leaves.value[cur.value.right]));
+const hasPrev = computed(() => (narrow.value ? narrowLeaf.value > 0 : opening.value > 0));
+const hasNext = computed(() =>
+  narrow.value ? narrowLeaf.value < leaves.value.length - 1 : opening.value < openings.value.length - 1,
+);
+const activeSeg = computed(() =>
+  leafFirstSeg(leaves.value[narrow.value ? narrowLeaf.value : cur.value.right]),
+);
+
+/* —— 窄屏单叶模式：宽度不足时只展示当前一叶，按叶翻页 —— */
+const narrow = ref(false);
+const narrowLeaf = ref(0);
+let narrowMq: MediaQueryList | null = null;
+
+/** 单叶模式下的展示叶；对开模式各叶照旧 */
+const displayRightLeaf = computed(() => (narrow.value ? narrowLeaf.value : cur.value.right));
+const displayLeftLeaf = computed(() => (narrow.value ? null : cur.value.left));
 /** 版心短名：四字内用全名；「×三帖」去后缀（孔侍中三帖→孔侍中）；
     「×帖」去帖字后四字内用之（快雪時晴帖→快雪時晴）；其余取末三字（集王聖教序→聖教序） */
 const titleShort = computed(() => {
@@ -95,6 +108,9 @@ const topMeta = computed(() =>
 );
 
 const pageLabel = computed(() => {
+  if (narrow.value) {
+    return `${toCN(narrowLeaf.value + 1)}／${toCN(leaves.value.length)}葉`;
+  }
   const total = openings.value.length;
   const r = cur.value.right + 1;
   const l = cur.value.left != null ? cur.value.left + 1 : null;
@@ -390,10 +406,18 @@ async function runFlip(delta: number, next: number) {
 
 async function go(delta: number) {
   if (animating.value || mode.value !== 'book') return;
+  if (narrow.value) {
+    /* 单叶模式：按叶推进，#pN hash 仍按「开」计，与宽屏互通 */
+    const nextLeaf = narrowLeaf.value + delta;
+    if (nextLeaf < 0 || nextLeaf >= leaves.value.length) return;
+    narrowLeaf.value = nextLeaf;
+    opening.value = Math.floor(nextLeaf / 2);
+    repaint();
+    return;
+  }
   const next = opening.value + delta;
   if (next < 0 || next >= openings.value.length) return;
-  const narrow = window.matchMedia('(max-width: 960px)').matches;
-  if (narrow || !vertical.value) {
+  if (!vertical.value) {
     opening.value = next;
     repaint();
     return;
@@ -465,11 +489,29 @@ function stepSize(d: number) {
 function jumpToSeg(seg: number) {
   const li = findLeafOfSeg(leaves.value, seg);
   if (li < 0) return;
+  if (narrow.value) {
+    narrowLeaf.value = li;
+    opening.value = Math.floor(li / 2);
+    repaint();
+    return;
+  }
   const oi = openings.value.findIndex((o) => o.right === li || o.left === li);
   if (oi >= 0) {
     opening.value = oi;
     repaint();
   }
+}
+
+/** 跨越单叶/对开断点时衔接阅读位置 */
+function onNarrowChange(e: MediaQueryListEvent) {
+  const was = narrow.value;
+  narrow.value = e.matches;
+  if (!was && narrow.value) {
+    narrowLeaf.value = cur.value.right;
+  } else if (was && !narrow.value) {
+    opening.value = Math.floor(narrowLeaf.value / 2);
+  }
+  rebuild(true);
 }
 
 /* —— #pN 深链 —— */
@@ -522,7 +564,15 @@ function onBookWheel(e: WheelEvent) {
 let resizeTimer: ReturnType<typeof setTimeout> | undefined;
 function onResize() {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => rebuild(true), 180);
+  resizeTimer = setTimeout(() => {
+    /* 断点状态兜底同步：部分环境 matchMedia change 事件不达，resize 时主动校 */
+    if (narrowMq && narrowMq.matches !== narrow.value) {
+      narrow.value = narrowMq.matches;
+      if (narrow.value) narrowLeaf.value = cur.value.right;
+      else opening.value = Math.floor(narrowLeaf.value / 2);
+    }
+    rebuild(true);
+  }, 180);
 }
 
 /* 就绪自愈回调（load/字体/延时/可见性/ResizeObserver 多信号复用，幂等） */
@@ -569,6 +619,12 @@ onMounted(() => {
     if (bookEl.value) ro.observe(bookEl.value);
     if (paperPadEl.value) ro.observe(paperPadEl.value);
   }
+
+  /* 窄屏单叶模式断点 */
+  narrowMq = window.matchMedia('(max-width: 960px)');
+  narrow.value = narrowMq.matches;
+  if (narrow.value) narrowLeaf.value = cur.value.right;
+  narrowMq.addEventListener('change', onNarrowChange);
 });
 
 let ro: ResizeObserver | null = null;
@@ -579,6 +635,7 @@ onBeforeUnmount(() => {
   viewportEl.value?.removeEventListener('wheel', onViewportWheel);
   document.removeEventListener('visibilitychange', onSettle);
   window.removeEventListener('load', onSettle);
+  narrowMq?.removeEventListener('change', onNarrowChange);
   ro?.disconnect();
   clearTimeout(resizeTimer);
 });
@@ -627,7 +684,7 @@ watch(opening, syncHash);
           <div ref="leafLeftEl" class="leaf leaf-left">
             <div class="leaf-pad">
               <div class="text-frame frame">
-                <div class="page-flow" v-html="leafHTML(cur.left)"></div>
+                <div class="page-flow" v-html="leafHTML(displayLeftLeaf)"></div>
               </div>
             </div>
           </div>
@@ -647,7 +704,7 @@ watch(opening, syncHash);
           <div ref="leafRightEl" class="leaf leaf-right">
             <div class="leaf-pad">
               <div ref="rightFrame" class="text-frame frame">
-                <div class="page-flow" v-html="leafHTML(cur.right)"></div>
+                <div class="page-flow" v-html="leafHTML(displayRightLeaf)"></div>
               </div>
             </div>
           </div>
@@ -701,9 +758,9 @@ watch(opening, syncHash);
     </div>
 
     <footer class="pager pager-book">
-      <button type="button" :disabled="!hasPrev" @click="go(-1)">前開</button>
+      <button type="button" :disabled="!hasPrev" @click="go(-1)">{{ narrow ? '前葉' : '前開' }}</button>
       <span class="num">{{ pageLabel }}</span>
-      <button type="button" :disabled="!hasNext" @click="go(1)">後開</button>
+      <button type="button" :disabled="!hasNext" @click="go(1)">{{ narrow ? '後葉' : '後開' }}</button>
     </footer>
 
     <div class="scroll-bar">
@@ -1197,17 +1254,13 @@ watch(opening, syncHash);
 .corner:hover::after { opacity: 1; }
 
 @media (max-width: 960px) {
-  .book { width: 96vw; height: 82vh; flex-direction: column-reverse; perspective: none; }
-  .banxin {
-    flex: 0 0 34px;
-    flex-direction: row;
-    padding: 0 12px;
-    border-left: none;
-    border-right: none;
-    border-top: 1px solid rgba(46, 36, 24, 0.35);
-    border-bottom: 1px solid rgba(46, 36, 24, 0.35);
-  }
-  .banxin-inner { writing-mode: horizontal-tb; flex-direction: row; height: auto; gap: 10px; }
+  /* 窄屏单叶模式：只展示当前一叶（右位容器渲染当前叶），版心与左叶收起 */
+  .book { width: 96vw; height: 82vh; perspective: none; }
+  .leaf-left, .banxin { display: none !important; }
+  .leaf-right { flex: 1 1 100%; }
+  .topbar { gap: 10px; padding: 0 12px; }
+  .topbar .seg { gap: 0; margin-right: 4px; padding-right: 6px; }
+  .topbar .seg button { min-width: 24px; padding: 0 4px; }
   .flip-layer { visibility: hidden !important; opacity: 0 !important; }
 }
 
