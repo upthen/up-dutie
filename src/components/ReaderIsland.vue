@@ -291,18 +291,11 @@ function leafHTML(leafIdx: number | null): string {
   return html;
 }
 
-function syncColHeights() {
-  if (!vertical.value) return;
-  bookEl.value?.querySelectorAll<HTMLElement>('.page-flow').forEach((flow) => {
-    const maxH = flow.clientHeight || 600;
-    flow.querySelectorAll<HTMLElement>('.pair').forEach((pair) => {
-      pair.style.height = maxH + 'px';
-    });
-  });
-}
-
 function repaint() {
-  nextTick(() => requestAnimationFrame(() => syncColHeights()));
+  nextTick(() => requestAnimationFrame(() => {
+    /* 界行高度由 CSS 弹性拉伸保证（.pair 拉满容器），
+       不再写内联高度——内联值会随度量时序留下陈旧状态（界行出框/悬空的根源） */
+  }));
 }
 
 /* —— 卷轴 —— */
@@ -381,7 +374,6 @@ async function runFlip(delta: number, next: number) {
     shade?.classList.add('on');
     if (delta > 0) leafLeftEl.value && (leafLeftEl.value.style.visibility = 'hidden');
     else leafRightEl.value && (leafRightEl.value.style.visibility = 'hidden');
-    syncColHeights();
     let finished = false;
     const done = () => {
       if (finished) return;
@@ -1323,6 +1315,7 @@ watch(opening, syncHash);
   height: 100%;
   min-height: 100%;
   align-self: stretch;
+  overflow: hidden;
   background:
     radial-gradient(ellipse at 18% 22%, rgba(70, 50, 30, 0.04) 0%, transparent 42%),
     radial-gradient(ellipse at 78% 68%, rgba(50, 40, 25, 0.035) 0%, transparent 48%),
@@ -1409,6 +1402,7 @@ watch(opening, syncHash);
   height: 100%;
   min-width: max-content;
   border-right: 1px solid var(--grid);
+  overflow: hidden;
 }
 .scroll-bar {
   display: flex;
